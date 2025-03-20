@@ -4,6 +4,9 @@ import { useState, useRef } from 'react';
 import CreatePostForm from '@/components/CreatePostForm';
 import PostFeed from '@/components/PostFeed';
 
+// Metadata is declared in layout.js and individual page metadata for client components
+// should be handled differently
+
 export default function Home() {
   const postFeedRef = useRef(null);
 

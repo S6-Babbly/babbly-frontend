@@ -71,6 +71,31 @@ docker build -t babbly-frontend .
 docker run -p 3000:3000 babbly-frontend
 ```
 
+## Auth0 Configuration
+
+For Auth0 to work correctly, especially in Docker:
+
+1. In your Auth0 Dashboard, go to Applications > [Your App] > Settings
+2. Under "Allowed Callback URLs", add:
+   - http://localhost:3000/api/auth/callback
+3. Under "Allowed Logout URLs", add:
+   - http://localhost:3000
+4. Under "Allowed Web Origins", add:
+   - http://localhost:3000
+5. Save the changes
+
+When running in Docker, ensure these environment variables are correctly set in docker-compose.yml:
+
+```yaml
+- AUTH0_SECRET=your_long_secret_value
+- AUTH0_BASE_URL=http://localhost:3000
+- AUTH0_ISSUER_BASE_URL=https://your-tenant.region.auth0.com
+- AUTH0_CLIENT_ID=your_client_id
+- AUTH0_CLIENT_SECRET=your_client_secret
+```
+
+These must match exactly with the values in your Auth0 dashboard.
+
 ## CI/CD Pipeline
 
 This repository uses GitHub Actions for continuous integration and deployment:
