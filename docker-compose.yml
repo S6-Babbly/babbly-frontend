@@ -1,7 +1,7 @@
-version: '3.8'
+version: '3'
 
 services:
-  frontend:
+  web:
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,5 +9,6 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+    restart: unless-stopped
     volumes:
-      - ./.env:/app/.env 
+      - ./.next/cache:/app/.next/cache 

@@ -2,10 +2,14 @@
 
 import { useState } from 'react';
 import { likePost } from '@/services/postService';
+import CommentSection from './CommentSection';
+import Link from 'next/link';
 
 export default function Post({ post }) {
   const [likes, setLikes] = useState(post.likes);
   const [isLiking, setIsLiking] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.commentCount || 0);
 
   const handleLike = async () => {
     if (isLiking) return;
@@ -21,6 +25,15 @@ export default function Post({ post }) {
     }
   };
 
+  const toggleComments = () => {
+    setShowComments(!showComments);
+  };
+
+  // Update comment count when new comments are added
+  const updateCommentCount = (count) => {
+    setCommentCount(count);
+  };
+
   return (
     <article className="border-b border-white/20 p-4 hover:bg-white/5 transition-colors">
       <div className="flex gap-4">
@@ -32,15 +45,32 @@ export default function Post({ post }) {
             <span className="text-white/50">·</span>
             <span className="text-white/50 hover:underline">{post.timeAgo}</span>
           </div>
-          <p className="mt-2 text-[15px] leading-normal whitespace-pre-line">{post.content}</p>
+          
+          <Link href={`/post/${post.id}`}>
+            <p className="mt-2 text-[15px] leading-normal whitespace-pre-line cursor-pointer hover:text-white/90">{post.content}</p>
+            
+            {post.mediaUrl && (
+              <div className="mt-3 rounded-xl overflow-hidden max-h-[500px]">
+                <img 
+                  src={post.mediaUrl} 
+                  alt="Post media" 
+                  className="w-full h-auto object-cover"
+                />
+              </div>
+            )}
+          </Link>
+          
           <div className="flex justify-between mt-4 max-w-md text-white/50">
-            <button className="group flex items-center gap-2 hover:text-blue-400">
+            <button 
+              className="group flex items-center gap-2 hover:text-blue-400"
+              onClick={toggleComments}
+            >
               <div className="p-2 rounded-full group-hover:bg-blue-400/10">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <span className="text-sm">0</span>
+              <span className="text-sm">{commentCount}</span>
             </button>
             <button className="group flex items-center gap-2 hover:text-green-400">
               <div className="p-2 rounded-full group-hover:bg-green-400/10">
@@ -65,6 +95,13 @@ export default function Post({ post }) {
           </div>
         </div>
       </div>
+      
+      {showComments && (
+        <CommentSection 
+          postId={post.id} 
+          onCommentCountChange={updateCommentCount} 
+        />
+      )}
     </article>
   );
 } 

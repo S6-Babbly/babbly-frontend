@@ -68,7 +68,7 @@ jobs:
         run: npm run build
 
   docker-build:
-    name: Docker Build and Publish
+    name: Docker Build and Validation
     runs-on: ubuntu-latest
     needs: [code-quality, frontend-tests]
     if: |
@@ -81,32 +81,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Login to Docker Hub
-        if: github.ref == 'refs/heads/main'
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Create .env file
+      - name: Create sample .env file for build
         run: |
           echo "NEXT_PUBLIC_API_URL=http://localhost:5000" > .env
 
-      - name: Build and push Frontend
+      - name: Build Docker image
         run: |
-          # Always build the image
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/babbly-frontend:${{ github.sha }} .
+          # Build the image locally
+          docker build -t babbly-frontend:${{ github.sha }} .
 
-          # Only push to DockerHub on main branch
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            docker tag ${{ secrets.DOCKERHUB_USERNAME }}/babbly-frontend:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/babbly-frontend:latest
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/babbly-frontend:${{ github.sha }}
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/babbly-frontend:latest
-          fi
-
-      - name: Check frontend
+      - name: Validate built image
         run: |
-          docker run --rm -d -p 3000:3000 --name test-frontend ${{ secrets.DOCKERHUB_USERNAME }}/babbly-frontend:${{ github.sha }}
+          # Start the container for testing
+          docker run --rm -d -p 3000:3000 --name test-frontend babbly-frontend:${{ github.sha }}
+          
+          # Wait for the application to start
           sleep 10
+          
+          # Check if the server is responding
           curl -f http://localhost:3000 || exit 1
+          
+          # Stop the container
           docker stop test-frontend
