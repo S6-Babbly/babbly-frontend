@@ -1,52 +1,30 @@
-# Build stage
-FROM node:18-alpine AS build
+# Use Node.js as the base image
+FROM node:18-alpine
 
+# Set working directory
 WORKDIR /app
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies - allowing dev dependencies for the build process
+# Install dependencies
 RUN npm ci
 
-# Copy the rest of the code
+# Copy the rest of the code (for production builds)
+# For development, we'll mount the source code as a volume
 COPY . .
-
-# Build the application
-RUN npm run build
-
-# Production stage
-FROM node:18-alpine AS production
-
-WORKDIR /app
-
-# Copy built assets from the build stage
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/public ./public
-
-# Create a directory for the cache
-RUN mkdir -p /app/.next/cache
-
-# Set proper permissions for NextJS
-RUN chmod -R 777 /app/.next/cache
 
 # Set environment variables
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_EXPORT=false
+ENV NEXT_FORCE_DYNAMIC=true
 
-# Create a non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Build the app for production
+RUN npm run build
 
-# Change ownership of the application to the non-root user
-RUN chown -R nextjs:nodejs /app
-
-# Switch to non-root user
-USER nextjs
-
-# Expose the port
+# Expose port
 EXPOSE 3000
 
-# Start the application
+# Start the app (will be overridden in dev mode via docker-compose)
 CMD ["npm", "start"] 

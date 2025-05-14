@@ -1,4 +1,33 @@
-import { apiClient } from '@/lib/api';
+import { useAccessToken } from '@/lib/auth0';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
+
+// Helper function to make authenticated API requests
+const authenticatedFetch = async (endpoint, options = {}) => {
+  const { getToken } = useAccessToken();
+  const token = await getToken();
+  
+  if (!token) {
+    throw new Error('Authentication token not available');
+  }
+  
+  const headers = {
+    ...options.headers,
+    'Authorization': `Bearer ${token}`
+  };
+  
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `API request failed with status: ${response.status}`);
+  }
+  
+  return await response.json();
+};
 
 /**
  * Get a user profile by ID
@@ -10,7 +39,9 @@ import { apiClient } from '@/lib/api';
  */
 export const getProfileById = async (userId, params = {}) => {
   const { postsPage = 1, postsPageSize = 10 } = params;
-  return await apiClient.get(`/api/profiles/id/${userId}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`);
+  return await authenticatedFetch(
+    `/api/users/${userId}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`
+  );
 };
 
 /**
@@ -23,7 +54,9 @@ export const getProfileById = async (userId, params = {}) => {
  */
 export const getProfileByUsername = async (username, params = {}) => {
   const { postsPage = 1, postsPageSize = 10 } = params;
-  return await apiClient.get(`/api/profiles/username/${username}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`);
+  return await authenticatedFetch(
+    `/api/users/username/${username}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`
+  );
 };
 
 /**
@@ -35,7 +68,9 @@ export const getProfileByUsername = async (username, params = {}) => {
  */
 export const getCurrentProfile = async (params = {}) => {
   const { postsPage = 1, postsPageSize = 10 } = params;
-  return await apiClient.get(`/api/profiles/me?postsPage=${postsPage}&postsPageSize=${postsPageSize}`);
+  return await authenticatedFetch(
+    `/api/users/me?postsPage=${postsPage}&postsPageSize=${postsPageSize}`
+  );
 };
 
 /**
@@ -44,7 +79,13 @@ export const getCurrentProfile = async (params = {}) => {
  * @returns {Promise<Object>} The updated profile
  */
 export const updateProfile = async (profileData) => {
-  return await apiClient.put('/api/users/profile', profileData);
+  return await authenticatedFetch('/api/users/profile', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(profileData)
+  });
 };
 
 /**
@@ -53,7 +94,9 @@ export const updateProfile = async (profileData) => {
  * @returns {Promise<Object>} The follow relationship
  */
 export const followUser = async (userId) => {
-  return await apiClient.post(`/api/users/follow/${userId}`);
+  return await authenticatedFetch(`/api/users/follow/${userId}`, {
+    method: 'POST'
+  });
 };
 
 /**
@@ -62,5 +105,7 @@ export const followUser = async (userId) => {
  * @returns {Promise<Object>} Success response
  */
 export const unfollowUser = async (userId) => {
-  return await apiClient.delete(`/api/users/follow/${userId}`);
+  return await authenticatedFetch(`/api/users/follow/${userId}`, {
+    method: 'DELETE'
+  });
 }; 

@@ -1,7 +1,55 @@
-import { withMiddlewareAuthRequired } from '@auth0/nextjs-auth0/edge';
+import { NextResponse } from 'next/server';
+import { getSession } from '@auth0/nextjs-auth0/edge';
 
-export default withMiddlewareAuthRequired();
+// Define an array of protected routes that require authentication
+const PROTECTED_ROUTES = [
+  '/profile',
+  '/settings',
+  '/create',
+  '/messages',
+];
+
+export default async function middleware(request) {
+  // Check if the path is a protected route
+  const path = request.nextUrl.pathname;
+  const isProtectedRoute = PROTECTED_ROUTES.some(route => path.startsWith(route));
+  
+  if (isProtectedRoute) {
+    // Get the session from the edge
+    const response = NextResponse.next();
+    const session = await getSession(request, response);
+    const isAuthenticated = !!session?.user;
+    
+    // If user is not authenticated, redirect to login
+    if (!isAuthenticated) {
+      const loginUrl = new URL('/api/auth/login', request.url);
+      loginUrl.searchParams.set('returnTo', path);
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    return response;
+  }
+  
+  // If path is login and user is authenticated, redirect to home page
+  if (path === '/login') {
+    const response = NextResponse.next();
+    const session = await getSession(request, response);
+    const isAuthenticated = !!session?.user;
+    
+    if (isAuthenticated) {
+      const homeUrl = new URL('/', request.url);
+      return NextResponse.redirect(homeUrl);
+    }
+    
+    return response;
+  }
+  
+  // Otherwise, continue with the request
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ['/create-post'],
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)',
+  ],
 }; 

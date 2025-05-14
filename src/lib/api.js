@@ -1,5 +1,70 @@
 import axios from 'axios';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
+
+/**
+ * Create an axios instance for API calls
+ */
+export const createApiClient = (token = null) => {
+  const headers = {};
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return axios.create({
+    baseURL: API_URL,
+    headers,
+  });
+};
+
+/**
+ * Make an authenticated API request using the provided token
+ * @param {string} url - The URL to call
+ * @param {string} method - HTTP method (get, post, put, delete)
+ * @param {object} data - Request body for POST/PUT calls
+ * @param {string} token - Auth token
+ */
+export const apiRequest = async (url, method = 'get', data = null, token = null) => {
+  try {
+    const api = createApiClient(token);
+    
+    const config = {
+      url,
+      method,
+    };
+    
+    if (data && (method.toLowerCase() === 'post' || method.toLowerCase() === 'put')) {
+      config.data = data;
+    }
+    
+    const response = await api.request(config);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      const { status, data } = error.response;
+      
+      if (status === 401) {
+        throw new Error('Unauthorized. Please login again.');
+      }
+      
+      if (status === 403) {
+        throw new Error('You do not have permission to perform this action.');
+      }
+      
+      throw new Error(data.error || 'An error occurred while making the request');
+    } else if (error.request) {
+      // The request was made but no response was received
+      throw new Error('No response received from the server. Please try again.');
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      throw error;
+    }
+  }
+};
+
 // Create the Axios instance with default config
 const API = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -12,8 +77,19 @@ const API = axios.create({
 // Request interceptor to add the auth token
 API.interceptors.request.use(
   async (config) => {
-    // We don't manually get the token because Auth0 Next.js SDK
-    // will handle this automatically with cookies
+    // Try to get the token from our API route
+    try {
+      const response = await fetch('/api/auth/token');
+      if (response.ok) {
+        const { accessToken } = await response.json();
+        if (accessToken) {
+          config.headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not retrieve token:', error);
+    }
+    
     return config;
   },
   (error) => {
@@ -34,8 +110,7 @@ API.interceptors.response.use(
     
     // Handle authentication errors
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // Auth0 should handle token refresh automatically
-      // But we can redirect to login if needed
+      // If token is expired, redirect to login
       if (typeof window !== 'undefined') {
         window.location.href = '/api/auth/login';
       }

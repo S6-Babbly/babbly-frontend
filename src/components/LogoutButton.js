@@ -1,19 +1,31 @@
 'use client';
 
-import React from 'react';
-import { useUser } from '@auth0/nextjs-auth0/client';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LogoutButton() {
-  const { user, isLoading } = useUser();
-
-  if (isLoading) return <div>Loading...</div>;
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
   
-  if (!user) return null;
-
+  const handleLogout = () => {
+    // Redirect to the Auth0 logout page
+    router.push('/api/auth/logout');
+  };
+  
+  if (!isAuthenticated) {
+    return null;
+  }
+  
   return (
-    <Link href="/api/auth/logout" className="border border-white/20 text-white rounded-full py-2 px-4 text-center font-semibold hover:bg-white/10 transition-colors">
-      Log Out
-    </Link>
+    <button
+      onClick={handleLogout}
+      className="flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600
+                text-white font-medium py-2 px-4 rounded-full transition-colors w-full"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+      </svg>
+      Logout
+    </button>
   );
 } 

@@ -1,4 +1,33 @@
-import { apiClient } from '@/lib/api';
+import { useAccessToken } from '@/lib/auth0';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
+
+// Helper function to make authenticated API requests
+const authenticatedFetch = async (endpoint, options = {}) => {
+  const { getToken } = useAccessToken();
+  const token = await getToken();
+  
+  if (!token) {
+    throw new Error('Authentication token not available');
+  }
+  
+  const headers = {
+    ...options.headers,
+    'Authorization': `Bearer ${token}`
+  };
+  
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `API request failed with status: ${response.status}`);
+  }
+  
+  return await response.json();
+};
 
 /**
  * Get a paginated list of posts for the feed
@@ -9,7 +38,7 @@ import { apiClient } from '@/lib/api';
  */
 export const getAllPosts = async (params = {}) => {
   const { page = 1, pageSize = 10 } = params;
-  return await apiClient.get(`/api/feed?page=${page}&pageSize=${pageSize}`);
+  return await authenticatedFetch(`/api/posts?page=${page}&pageSize=${pageSize}`);
 };
 
 /**
@@ -18,7 +47,7 @@ export const getAllPosts = async (params = {}) => {
  * @returns {Promise<Object>} The post object with comments
  */
 export const getPostById = async (postId) => {
-  return await apiClient.get(`/api/feed/${postId}`);
+  return await authenticatedFetch(`/api/posts/${postId}`);
 };
 
 /**
@@ -29,7 +58,13 @@ export const getPostById = async (postId) => {
  * @returns {Promise<Object>} The created post
  */
 export const createPost = async (postData) => {
-  return await apiClient.post('/api/posts', postData);
+  return await authenticatedFetch('/api/posts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(postData)
+  });
 };
 
 /**
@@ -39,7 +74,13 @@ export const createPost = async (postData) => {
  * @returns {Promise<Object>} The updated post
  */
 export const updatePost = async (postId, postData) => {
-  return await apiClient.put(`/api/posts/${postId}`, postData);
+  return await authenticatedFetch(`/api/posts/${postId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(postData)
+  });
 };
 
 /**
@@ -48,7 +89,9 @@ export const updatePost = async (postId, postData) => {
  * @returns {Promise<Object>} Success response
  */
 export const deletePost = async (postId) => {
-  return await apiClient.delete(`/api/posts/${postId}`);
+  return await authenticatedFetch(`/api/posts/${postId}`, {
+    method: 'DELETE'
+  });
 };
 
 /**
@@ -57,7 +100,28 @@ export const deletePost = async (postId) => {
  * @returns {Promise<Object>} Updated like status
  */
 export const likePost = async (postId) => {
-  return await apiClient.post(`/api/likes/post/${postId}`);
+  return await authenticatedFetch(`/api/likes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ postId })
+  });
+};
+
+/**
+ * Unlike a post
+ * @param {String} postId The post ID
+ * @returns {Promise<Object>} Updated like status
+ */
+export const unlikePost = async (postId) => {
+  return await authenticatedFetch(`/api/likes`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ postId })
+  });
 };
 
 /**
@@ -70,5 +134,5 @@ export const likePost = async (postId) => {
  */
 export const getUserPosts = async (userId, params = {}) => {
   const { page = 1, pageSize = 10 } = params;
-  return await apiClient.get(`/api/profiles/id/${userId}?postsPage=${page}&postsPageSize=${pageSize}`);
+  return await authenticatedFetch(`/api/posts/user/${userId}?page=${page}&pageSize=${pageSize}`);
 }; 

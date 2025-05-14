@@ -1,4 +1,33 @@
-import { apiClient } from '@/lib/api';
+import { useAccessToken } from '@/lib/auth0';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
+
+// Helper function to make authenticated API requests
+const authenticatedFetch = async (endpoint, options = {}) => {
+  const { getToken } = useAccessToken();
+  const token = await getToken();
+  
+  if (!token) {
+    throw new Error('Authentication token not available');
+  }
+  
+  const headers = {
+    ...options.headers,
+    'Authorization': `Bearer ${token}`
+  };
+  
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `API request failed with status: ${response.status}`);
+  }
+  
+  return await response.json();
+};
 
 /**
  * Get comments for a specific post
@@ -10,7 +39,7 @@ import { apiClient } from '@/lib/api';
  */
 export const getPostComments = async (postId, params = {}) => {
   const { page = 1, pageSize = 10 } = params;
-  return await apiClient.get(`/api/comments/post/${postId}?page=${page}&pageSize=${pageSize}`);
+  return await authenticatedFetch(`/api/comments/post/${postId}?page=${page}&pageSize=${pageSize}`);
 };
 
 /**
@@ -21,7 +50,16 @@ export const getPostComments = async (postId, params = {}) => {
  * @returns {Promise<Object>} The created comment
  */
 export const createComment = async (postId, commentData) => {
-  return await apiClient.post(`/api/comments/post/${postId}`, commentData);
+  return await authenticatedFetch(`/api/comments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      postId,
+      ...commentData
+    })
+  });
 };
 
 /**
@@ -31,7 +69,13 @@ export const createComment = async (postId, commentData) => {
  * @returns {Promise<Object>} The updated comment
  */
 export const updateComment = async (commentId, commentData) => {
-  return await apiClient.put(`/api/comments/${commentId}`, commentData);
+  return await authenticatedFetch(`/api/comments/${commentId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(commentData)
+  });
 };
 
 /**
@@ -40,14 +84,41 @@ export const updateComment = async (commentId, commentData) => {
  * @returns {Promise<Object>} Success response
  */
 export const deleteComment = async (commentId) => {
-  return await apiClient.delete(`/api/comments/${commentId}`);
+  return await authenticatedFetch(`/api/comments/${commentId}`, {
+    method: 'DELETE'
+  });
 };
 
 /**
- * Like or unlike a comment
+ * Like a comment
  * @param {String} commentId The comment ID
  * @returns {Promise<Object>} Updated like status
  */
 export const likeComment = async (commentId) => {
-  return await apiClient.post(`/api/likes/comment/${commentId}`);
+  return await authenticatedFetch(`/api/likes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ 
+      commentId 
+    })
+  });
+};
+
+/**
+ * Unlike a comment
+ * @param {String} commentId The comment ID
+ * @returns {Promise<Object>} Updated like status
+ */
+export const unlikeComment = async (commentId) => {
+  return await authenticatedFetch(`/api/likes`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ 
+      commentId 
+    })
+  });
 }; 

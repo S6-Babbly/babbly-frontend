@@ -1,28 +1,32 @@
 'use client';
 
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+/**
+ * Higher-order component that protects routes requiring authentication
+ */
 export default function withAuth(Component) {
-  return function ProtectedRoute(props) {
-    const { user, isLoading } = useUser();
+  return function AuthenticatedComponent(props) {
+    const { isAuthenticated, isLoading } = useAuth();
     const router = useRouter();
-
+    
     useEffect(() => {
-      if (!isLoading && !user) {
-        router.replace('/api/auth/login');
+      // Only redirect once loading is complete and we know the user is not authenticated
+      if (!isLoading && !isAuthenticated) {
+        router.push('/api/auth/login');
       }
-    }, [isLoading, user, router]);
-
-    if (isLoading) {
-      return <div className="p-6 text-center">Loading...</div>;
+    }, [isAuthenticated, isLoading, router]);
+    
+    // Show loading state or redirect silently
+    if (isLoading || !isAuthenticated) {
+      return <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
+      </div>;
     }
-
-    if (!user) {
-      return <div className="p-6 text-center">Redirecting to login...</div>;
-    }
-
-    return <Component {...props} user={user} />;
+    
+    // User is authenticated, render the component
+    return <Component {...props} />;
   };
 }

@@ -9,14 +9,34 @@ export const fetcher = async (url) => {
   }
 };
 
-// Default SWR configuration
-export const swrConfig = {
-  // We need to create a client-safe version of the fetcher
-  // This is done in the SWRConfig component
-  revalidateOnFocus: false,
+/**
+ * SWR configuration - used by SWRProvider
+ */
+export default {
+  // Default to revalidate data every 5 seconds
+  refreshInterval: 5000,
+  
+  // Revalidate on window focus after 3 seconds
+  focusThrottleInterval: 3000,
+  
+  // Deduplicate requests within a time window
+  dedupingInterval: 2000,
+  
+  // Error retry configuration
+  errorRetryCount: 3,
+  
+  // Suspense mode is disabled as we use custom loading states
+  suspense: false,
+  
+  // Keep previous data when fetching new data
+  keepPreviousData: true,
+  
+  // Revalidate on:
+  revalidateOnFocus: true,
   revalidateOnReconnect: true,
-  dedupingInterval: 5000, // Dedupe requests with the same key for 5 seconds
-  errorRetryCount: 3, // Retry failed requests 3 times
+  
+  // Don't automatically revalidate on mount
+  revalidateOnMount: true,
 };
 
 // Constants for SWR cache keys
@@ -27,6 +47,4 @@ export const SWR_KEYS = {
   CURRENT_PROFILE: '/api/profiles/me',
   POST: (id) => `/api/feed/${id}`,
   COMMENTS: (postId) => `/api/comments/post/${postId}`,
-};
-
-export default swrConfig; 
+}; 

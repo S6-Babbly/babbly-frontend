@@ -1,103 +1,123 @@
-import { getSession } from '@auth0/nextjs-auth0';
-import Image from 'next/image';
-import Link from 'next/link';
+'use client';
 
-// Add metadata to the profile page
-export const metadata = {
-  title: 'Profile',
-};
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { userService } from '@/services/userService';
 
-export default async function Profile() {
-  // Use try-catch to handle potential errors with getSession
-  try {
-    const session = await getSession();
-    const user = session?.user;
+export default function ProfilePage() {
+  const { user, isLoading, getToken } = useAuth();
+  const [profileData, setProfileData] = useState(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [error, setError] = useState(null);
 
-    if (!user) {
-      return (
-        <div className="p-6">
-          <h1 className="text-2xl font-bold mb-4">Profile</h1>
-          <p>Please log in to view your profile.</p>
-        </div>
-      );
-    }
-
-    // Get display name - use nickname, name, or extract from email
-    const displayName = user.nickname || user.name || (user.email ? user.email.split('@')[0] : 'User');
-    // Create username for profile display
-    const username = user.nickname || user.email.split('@')[0];
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (isLoading) return;
+      
+      try {
+        setIsLoadingProfile(true);
+        const token = await getToken();
+        const data = await userService.getCurrentUserProfile(token);
+        setProfileData(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+        setError('Failed to load profile data');
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
     
+    fetchProfileData();
+  }, [isLoading, getToken]);
+
+  if (isLoading || isLoadingProfile) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Profile</h1>
-        
-        <div className="bg-white/10 rounded-xl p-6">
-          <div className="flex items-center gap-6 mb-6">
-            {user.picture && (
-              <div className="relative w-24 h-24 rounded-full overflow-hidden">
-                <Image 
-                  src={user.picture} 
-                  alt={displayName} 
-                  fill 
-                  className="object-cover" 
-                />
-              </div>
-            )}
-            <div>
-              <h2 className="text-xl font-bold">{displayName}</h2>
-              <p className="text-white/70">@{username}</p>
-            </div>
-          </div>
-          
-          <div className="border-t border-white/10 pt-4">
-            <h3 className="text-lg font-semibold mb-2">Account Details</h3>
-            <dl className="space-y-2">
-              <div className="grid grid-cols-3">
-                <dt className="text-white/60">Email:</dt>
-                <dd className="col-span-2">{user.email}</dd>
-              </div>
-              <div className="grid grid-cols-3">
-                <dt className="text-white/60">Email Verified:</dt>
-                <dd className="col-span-2">{user.email_verified ? 'Yes' : 'No'}</dd>
-              </div>
-              <div className="grid grid-cols-3">
-                <dt className="text-white/60">Joined:</dt>
-                <dd className="col-span-2">{new Date(user.updated_at).toLocaleDateString()}</dd>
-              </div>
-            </dl>
-          </div>
-          
-          {/* Account Actions Section */}
-          <div className="mt-8 space-y-4">
-            <Link 
-              href="/api/auth/logout" 
-              className="block w-full py-3 bg-primary text-white text-center rounded-lg hover:bg-primary/90"
-            >
-              Logout
-            </Link>
-            
-            <div className="mt-4 bg-red-900/30 border border-red-500/50 rounded-lg p-4">
-              <p className="text-white mb-3">Want to delete your account?</p>
-              <p className="text-white/70 text-sm mb-3">
-                This will permanently remove all your data from our platform.
-              </p>
-              <Link 
-                href="/account/delete"
-                className="block w-full py-2 bg-red-600 text-white text-center rounded-md hover:bg-red-700"
-              >
-                Delete Account
-              </Link>
-            </div>
-          </div>
+      <div>
+        <div className="sticky top-0 backdrop-blur-md bg-secondary/80 border-b border-white/20 px-4 py-3 z-10">
+          <h1 className="text-xl font-bold">Profile</h1>
         </div>
-      </div>
-    );
-  } catch (error) {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Profile</h1>
-        <p>Error loading profile. Please try again later.</p>
+        <div className="flex justify-center items-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
       </div>
     );
   }
+
+  if (error) {
+    return (
+      <div>
+        <div className="sticky top-0 backdrop-blur-md bg-secondary/80 border-b border-white/20 px-4 py-3 z-10">
+          <h1 className="text-xl font-bold">Profile</h1>
+        </div>
+        <div className="p-4 text-center">
+          <p className="text-red-400">{error}</p>
+          <button 
+            className="mt-4 bg-primary text-white px-4 py-2 rounded-full" 
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="sticky top-0 backdrop-blur-md bg-secondary/80 border-b border-white/20 px-4 py-3 z-10">
+        <h1 className="text-xl font-bold">Profile</h1>
+      </div>
+      
+      <div className="p-4">
+        {user && (
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6">
+            <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-white/20">
+                {user.picture && (
+                  <img src={user.picture} alt={user.name} className="w-full h-full object-cover" />
+                )}
+              </div>
+              
+              <div className="flex-1 text-center sm:text-left">
+                <h2 className="text-2xl font-bold">{user.name}</h2>
+                <p className="text-white/70">@{user.nickname || user.email?.split('@')[0]}</p>
+                
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <h3 className="font-bold mb-2">Email</h3>
+                  <p className="text-white/90">{user.email}</p>
+                </div>
+                
+                {profileData && profileData.additionalInfo && (
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <h3 className="font-bold mb-2">Additional Info</h3>
+                    <p className="text-white/90 whitespace-pre-line">
+                      {JSON.stringify(profileData.additionalInfo, null, 2)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="mt-6 pt-6 border-t border-white/10">
+              <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
+                <a 
+                  href="/api/auth/logout" 
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full transition-colors"
+                >
+                  Logout
+                </a>
+                
+                <button 
+                  className="border border-white/30 text-white px-6 py-2 rounded-full hover:bg-white/10 transition-colors"
+                >
+                  Edit Profile
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 } 
