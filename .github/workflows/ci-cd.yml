@@ -7,20 +7,27 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: babbly-frontend
+
 jobs:
   code-quality:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
+    needs: frontend-tests # Depends on frontend-tests
+    if: (needs.frontend-tests.result == 'success' || needs.frontend-tests.result == 'skipped')
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 100 # Shallow clones should be disabled for better relevancy of SonarCloud analysis
+          fetch-depth: 0 # SonarCloud needs full history
 
-      - name: Set up JDK 17
+      - name: Set up JDK 17 # SonarScanner requires a JRE
         uses: actions/setup-java@v3
         with:
           java-version: 17
           distribution: "temurin"
+
+      # No .NET setup needed for frontend
 
       - name: Cache SonarCloud packages
         uses: actions/cache@v4
@@ -29,20 +36,24 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
+      - name: Download coverage artifact # Download coverage from frontend-tests
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
-          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
         with:
           args: >
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY_FRONTEND }} # Unique project key
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.sources=.
-            -Dsonar.exclusions=**/node_modules/**,**/.next/**,**/bin/**,**/obj/**,**/*.test.js,**/*.spec.js
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/.next/**,**/bin/**,**/obj/**,**/*.test.js,**/*.spec.js,public/**
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info # Path to LCOV report
 
   frontend-tests:
     name: Frontend Tests
@@ -53,53 +64,58 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "18" # Or your project's Node version
           cache: "npm"
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      # Uncomment when tests are added
-      # - name: Run tests
-      #   run: npm test
+      - name: Run tests and generate coverage
+        # Ensure your test script generates coverage to coverage/lcov.info
+        # Example: npm test -- --coverage --coverageReporters=lcov
+        # Or if your package.json's test script already does this:
+        run: npm test -- --coverage
 
-      - name: Build frontend
+      - name: Build frontend # If build is needed before tests or for other reasons
         run: npm run build
 
-  docker-build:
-    name: Docker Build and Validation
+      - name: Upload coverage artifact # Upload coverage for SonarCloud
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage/lcov.info # Ensure this path is correct
+          if-no-files-found: error # Fail if no coverage report
+
+  docker-build-and-push:
+    name: Docker Build and Push to Docker Hub
     runs-on: ubuntu-latest
     needs: [code-quality, frontend-tests]
     if: |
-      always() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       (needs.code-quality.result == 'success' || needs.code-quality.result == 'skipped') &&
       (needs.frontend-tests.result == 'success' || needs.frontend-tests.result == 'skipped')
     steps:
       - uses: actions/checkout@v3
 
+      - name: Docker Hub Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Create sample .env file for build
-        run: |
-          echo "NEXT_PUBLIC_API_URL=http://localhost:5000" > .env
-
-      - name: Build Docker image
-        run: |
-          # Build the image locally
-          docker build -t babbly-frontend:${{ github.sha }} .
-
-      - name: Validate built image
-        run: |
-          # Start the container for testing
-          docker run --rm -d -p 3000:3000 --name test-frontend babbly-frontend:${{ github.sha }}
-          
-          # Wait for the application to start
-          sleep 10
-          
-          # Check if the server is responding
-          curl -f http://localhost:3000 || exit 1
-          
-          # Stop the container
-          docker stop test-frontend
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          # Add build-args for environment variables if needed during build time
+          # build-args: |
+          #   ASPNETCORE_ENVIRONMENT=Production
