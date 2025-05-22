@@ -5,29 +5,30 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 env:
   IMAGE_NAME: babbly-frontend
+  SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+  SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY_FRONTEND }}
 
 jobs:
   code-quality:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
-    needs: frontend-tests # Depends on frontend-tests
+    needs: frontend-tests
     if: (needs.frontend-tests.result == 'success' || needs.frontend-tests.result == 'skipped')
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # SonarCloud needs full history
+          fetch-depth: 0
 
-      - name: Set up JDK 17 # SonarScanner requires a JRE
-        uses: actions/setup-java@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           java-version: 17
           distribution: "temurin"
-
-      # No .NET setup needed for frontend
 
       - name: Cache SonarCloud packages
         uses: actions/cache@v4
@@ -36,8 +37,8 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Download coverage artifact # Download coverage from frontend-tests
-        uses: actions/download-artifact@v3
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
         with:
           name: coverage-report
           path: coverage
@@ -47,24 +48,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY_FRONTEND }} # Unique project key
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.sources=.
-            -Dsonar.exclusions=**/node_modules/**,**/.next/**,**/bin/**,**/obj/**,**/*.test.js,**/*.spec.js,public/**
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info # Path to LCOV report
 
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18" # Or your project's Node version
+          node-version: "18"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
@@ -72,20 +66,17 @@ jobs:
         run: npm ci
 
       - name: Run tests and generate coverage
-        # Ensure your test script generates coverage to coverage/lcov.info
-        # Example: npm test -- --coverage --coverageReporters=lcov
-        # Or if your package.json's test script already does this:
         run: npm test -- --coverage
 
-      - name: Build frontend # If build is needed before tests or for other reasons
+      - name: Build frontend
         run: npm run build
 
-      - name: Upload coverage artifact # Upload coverage for SonarCloud
-        uses: actions/upload-artifact@v3
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage/lcov.info # Ensure this path is correct
-          if-no-files-found: error # Fail if no coverage report
+          path: coverage/lcov.info
+          if-no-files-found: error
 
   docker-build-and-push:
     name: Docker Build and Push to Docker Hub
@@ -96,7 +87,7 @@ jobs:
       (needs.code-quality.result == 'success' || needs.code-quality.result == 'skipped') &&
       (needs.frontend-tests.result == 'success' || needs.frontend-tests.result == 'skipped')
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Docker Hub Login
         uses: docker/login-action@v2
@@ -116,6 +107,3 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-          # Add build-args for environment variables if needed during build time
-          # build-args: |
-          #   ASPNETCORE_ENVIRONMENT=Production
