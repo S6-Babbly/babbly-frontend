@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: babbly-frontend:latest
+        image: morrishh/babbly-frontend:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
