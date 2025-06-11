@@ -1,15 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { likePost } from '@/services/postService';
+import { likePost, updatePost, deletePost } from '@/services/postService';
+import { useAuth } from '@/context/AuthContext';
 import CommentSection from './CommentSection';
 import Link from 'next/link';
 
-export default function Post({ post }) {
+export default function Post({ post, onPostUpdated, onPostDeleted }) {
+  const { auth0User } = useAuth();
   const [likes, setLikes] = useState(post.likes);
   const [isLiking, setIsLiking] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.commentCount || 0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState('');
+  
+  const isOwner = auth0User && auth0User.sub === post.userId;
 
   const handleLike = async () => {
     if (isLiking) return;
@@ -29,6 +38,57 @@ export default function Post({ post }) {
     setShowComments(!showComments);
   };
 
+  const handleUpdate = async () => {
+    if (!editContent.trim()) {
+      setError('Post content cannot be empty');
+      return;
+    }
+    
+    if (editContent.length > 280) {
+      setError('Post content cannot exceed 280 characters');
+      return;
+    }
+    
+    setIsUpdating(true);
+    setError('');
+    
+    try {
+      await updatePost(post.id, { content: editContent.trim() });
+      setIsEditing(false);
+      if (onPostUpdated) {
+        onPostUpdated({ ...post, content: editContent.trim() });
+      }
+    } catch (error) {
+      console.error('Failed to update post:', error);
+      setError(error.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+    
+    setIsDeleting(true);
+    try {
+      await deletePost(post.id);
+      if (onPostDeleted) {
+        onPostDeleted(post.id);
+      }
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      setError(error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditContent(post.content);
+    setError('');
+  };
+
   // Update comment count when new comments are added
   const updateCommentCount = (count) => {
     setCommentCount(count);
@@ -39,26 +99,91 @@ export default function Post({ post }) {
       <div className="flex gap-4">
         <div className="w-12 h-12 rounded-full bg-white/20 flex-shrink-0"></div>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-bold hover:underline">User {post.userId}</span>
-            <span className="text-white/50">@user{post.userId}</span>
-            <span className="text-white/50">·</span>
-            <span className="text-white/50 hover:underline">{post.timeAgo}</span>
-          </div>
-          
-          <Link href={`/post/${post.id}`}>
-            <p className="mt-2 text-[15px] leading-normal whitespace-pre-line cursor-pointer hover:text-white/90">{post.content}</p>
+          <div className="flex items-center gap-2 justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-bold hover:underline">User {post.userId}</span>
+              <span className="text-white/50">@user{post.userId}</span>
+              <span className="text-white/50">·</span>
+              <span className="text-white/50 hover:underline">{post.timeAgo}</span>
+            </div>
             
-            {post.mediaUrl && (
-              <div className="mt-3 rounded-xl overflow-hidden max-h-[500px]">
-                <img 
-                  src={post.mediaUrl} 
-                  alt="Post media" 
-                  className="w-full h-auto object-cover"
-                />
+            {isOwner && !isEditing && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-white/50 hover:text-blue-400 p-1 rounded-full hover:bg-blue-400/10"
+                  title="Edit post"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="text-white/50 hover:text-red-400 p-1 rounded-full hover:bg-red-400/10 disabled:opacity-50"
+                  title="Delete post"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
               </div>
             )}
-          </Link>
+          </div>
+          
+          {isEditing ? (
+            <div className="mt-2">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                disabled={isUpdating}
+                className="w-full bg-white/5 border border-white/20 rounded-lg p-3 text-[15px] leading-normal resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                rows="3"
+                maxLength="280"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <div className="text-sm text-white/50">
+                  {editContent.length}/280
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={isUpdating}
+                    className="px-4 py-2 text-sm border border-white/20 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdate}
+                    disabled={isUpdating || !editContent.trim() || editContent.length > 280}
+                    className="px-4 py-2 text-sm bg-primary rounded-full hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {isUpdating ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+              {error && (
+                <div className="text-red-400 text-sm mt-2 p-2 bg-red-400/10 rounded">
+                  {error}
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link href={`/post/${post.id}`}>
+              <p className="mt-2 text-[15px] leading-normal whitespace-pre-line cursor-pointer hover:text-white/90">{post.content}</p>
+              
+              {post.mediaUrl && (
+                <div className="mt-3 rounded-xl overflow-hidden max-h-[500px]">
+                  <img 
+                    src={post.mediaUrl} 
+                    alt="Post media" 
+                    className="w-full h-auto object-cover"
+                  />
+                </div>
+              )}
+            </Link>
+          )}
           
           <div className="flex justify-between mt-4 max-w-md text-white/50">
             <button 

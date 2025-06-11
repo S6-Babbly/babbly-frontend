@@ -3,26 +3,32 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import useAuthStore from '@/stores/authStore';
+import { useAuth } from '@/context/AuthContext';
 import { userService } from '@/services/userService';
 
 export default function ProfileClient() {
-  const { user, profile, userInfo, isLoading, error } = useAuthStore();
+  const { user, auth0User, isLoading, error, getToken } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
   // Check authorization for user profile
   useEffect(() => {
-    if (!user) {
+    if (!auth0User) {
       setIsCheckingAuth(false);
       return;
     }
     
     const checkAuth = async () => {
       try {
+        const token = await getToken();
+        if (!token) {
+          setIsAuthorized(false);
+          return;
+        }
+        
         // Check if user has permission to access the profile
-        const hasPermission = await userService.validateAuthorization('/users/profile', 'READ');
+        const hasPermission = await userService.validateAuthorization('/users/profile', 'READ', token);
         setIsAuthorized(hasPermission);
       } catch (error) {
         console.error('Error checking authorization:', error);
@@ -33,12 +39,12 @@ export default function ProfileClient() {
     };
     
     checkAuth();
-  }, [user]);
+  }, [auth0User, getToken]);
   
   if (isLoading || isCheckingAuth) return <div className="p-6 text-center">Loading...</div>;
   if (error) return <div className="p-6 text-center">Error: {error}</div>;
   
-  if (!user) {
+  if (!auth0User) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Profile</h1>
@@ -56,10 +62,10 @@ export default function ProfileClient() {
     );
   }
 
-  // Get display name from profile or auth0 user data
-  const displayName = profile?.name || user.nickname || user.name || (user.email ? user.email.split('@')[0] : 'User');
+  // Get display name from backend user data or auth0 user data
+  const displayName = user?.fullName || user?.name || auth0User.nickname || auth0User.name || (auth0User.email ? auth0User.email.split('@')[0] : 'User');
   // Create username for profile display
-  const username = profile?.username || user.nickname || user.email.split('@')[0];
+  const username = user?.username || auth0User.nickname || auth0User.email?.split('@')[0];
 
   return (
     <div className="p-6">
@@ -67,10 +73,10 @@ export default function ProfileClient() {
       
       <div className="bg-white/10 rounded-xl p-6">
         <div className="flex items-center gap-6 mb-6">
-          {(profile?.profilePicture || user.picture) && (
+          {(user?.picture || auth0User.picture) && (
             <div className="relative w-24 h-24 rounded-full overflow-hidden">
               <Image 
-                src={profile?.profilePicture || user.picture} 
+                src={user?.picture || auth0User.picture} 
                 alt={displayName} 
                 fill 
                 className="object-cover" 
@@ -80,11 +86,6 @@ export default function ProfileClient() {
           <div>
             <h2 className="text-xl font-bold">{displayName}</h2>
             <p className="text-white/70">@{username}</p>
-            {userInfo && userInfo.roles && (
-              <p className="text-xs mt-1 bg-primary/20 inline-block px-2 py-1 rounded">
-                {userInfo.roles.join(', ')}
-              </p>
-            )}
           </div>
         </div>
         
@@ -93,27 +94,27 @@ export default function ProfileClient() {
           <dl className="space-y-2">
             <div className="grid grid-cols-3">
               <dt className="text-white/60">Email:</dt>
-              <dd className="col-span-2">{profile?.email || user.email}</dd>
+              <dd className="col-span-2">{user?.email || auth0User.email}</dd>
             </div>
             <div className="grid grid-cols-3">
               <dt className="text-white/60">Email Verified:</dt>
-              <dd className="col-span-2">{user.email_verified ? 'Yes' : 'No'}</dd>
+              <dd className="col-span-2">{auth0User.email_verified ? 'Yes' : 'No'}</dd>
             </div>
-            {(profile?.createdAt || user.updated_at) && (
+            {(user?.createdAt || auth0User.updated_at) && (
               <div className="grid grid-cols-3">
                 <dt className="text-white/60">Joined:</dt>
                 <dd className="col-span-2">
-                  {profile?.createdAt 
-                    ? new Date(profile.createdAt).toLocaleDateString() 
-                    : new Date(user.updated_at).toLocaleDateString()
+                  {user?.createdAt 
+                    ? new Date(user.createdAt).toLocaleDateString() 
+                    : new Date(auth0User.updated_at).toLocaleDateString()
                   }
                 </dd>
               </div>
             )}
-            {profile?.bio && (
+            {user?.bio && (
               <div className="col-span-3 mt-3 border-t border-white/10 pt-3">
                 <dt className="text-white/60 mb-1">Bio:</dt>
-                <dd>{profile.bio}</dd>
+                <dd>{user.bio}</dd>
               </div>
             )}
           </dl>

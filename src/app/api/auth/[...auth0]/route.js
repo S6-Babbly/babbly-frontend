@@ -5,15 +5,20 @@ export const GET = handleAuth({
   login: handleLogin({
     authorizationParams: {
       // Setting audience for the API
-      audience: process.env.NEXT_PUBLIC_AUTH0_AUDIENCE,
+      audience: process.env.AUTH0_AUDIENCE,
       // Request these scopes
-      scope: 'openid profile email offline_access'
+      scope: process.env.AUTH0_SCOPE
     },
     returnTo: '/'
   }),
   callback: handleCallback({
-    afterCallback: (req, res, session) => {
-      // You can modify the session here if needed
+    afterCallback: (req, session, state) => {
+      console.log('--- Auth0 Callback Handler ---');
+      console.log('Session created:', !!session);
+      if (session) {
+        console.log('Session contains accessToken:', 'accessToken' in session);
+      }
+      console.log('------------------------------');
       return session;
     }
   }),

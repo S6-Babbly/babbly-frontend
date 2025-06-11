@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { createComment } from '@/services/commentService';
 
 export default function CommentForm({ postId, onCommentCreated }) {
+  const { isAuthenticated, getToken } = useAuth();
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -14,20 +16,44 @@ export default function CommentForm({ postId, onCommentCreated }) {
     if (!content.trim()) return;
     if (isSubmitting) return;
     
+    if (!isAuthenticated) {
+      setError('Please log in to comment');
+      return;
+    }
+    
     setIsSubmitting(true);
     setError('');
     
     try {
-      const newComment = await createComment(postId, { content });
+      const token = await getToken();
+      if (!token) {
+        setError('Unable to get authentication token. Please try logging in again.');
+        return;
+      }
+      
+      const newComment = await createComment(postId, { content }, token);
       setContent('');
       if (onCommentCreated) onCommentCreated(newComment);
     } catch (error) {
       console.error('Failed to create comment:', error);
-      setError('Failed to add comment. Please try again.');
+      
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        setError('Your session has expired. Please log in again.');
+      } else {
+        setError('Failed to add comment. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="mt-2 pl-12 border-t border-white/10 pt-3">
+        <p className="text-white/60 text-sm">Please log in to comment on this post.</p>
+      </div>
+    );
+  }
   
   return (
     <form onSubmit={handleSubmit} className="mt-2 pl-12 border-t border-white/10 pt-3">

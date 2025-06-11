@@ -1,33 +1,4 @@
-import { useAccessToken } from '@/lib/auth0';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
-
-// Helper function to make authenticated API requests
-const authenticatedFetch = async (endpoint, options = {}) => {
-  const { getToken } = useAccessToken();
-  const token = await getToken();
-  
-  if (!token) {
-    throw new Error('Authentication token not available');
-  }
-  
-  const headers = {
-    ...options.headers,
-    'Authorization': `Bearer ${token}`
-  };
-  
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `API request failed with status: ${response.status}`);
-  }
-  
-  return await response.json();
-};
+import { apiRequest } from '@/lib/api';
 
 /**
  * Get a user profile by ID
@@ -35,12 +6,16 @@ const authenticatedFetch = async (endpoint, options = {}) => {
  * @param {Object} params Query parameters
  * @param {Number} params.postsPage Page number for posts (default: 1)
  * @param {Number} params.postsPageSize Posts per page (default: 10)
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The user profile
  */
-export const getProfileById = async (userId, params = {}) => {
+export const getProfileById = async (userId, params = {}, token) => {
   const { postsPage = 1, postsPageSize = 10 } = params;
-  return await authenticatedFetch(
-    `/api/users/${userId}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`
+  return await apiRequest(
+    `/api/users/${userId}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`,
+    'get',
+    null,
+    token
   );
 };
 
@@ -50,12 +25,16 @@ export const getProfileById = async (userId, params = {}) => {
  * @param {Object} params Query parameters
  * @param {Number} params.postsPage Page number for posts (default: 1)
  * @param {Number} params.postsPageSize Posts per page (default: 10)
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The user profile
  */
-export const getProfileByUsername = async (username, params = {}) => {
+export const getProfileByUsername = async (username, params = {}, token) => {
   const { postsPage = 1, postsPageSize = 10 } = params;
-  return await authenticatedFetch(
-    `/api/users/username/${username}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`
+  return await apiRequest(
+    `/api/users/username/${username}?postsPage=${postsPage}&postsPageSize=${postsPageSize}`,
+    'get',
+    null,
+    token
   );
 };
 
@@ -64,48 +43,45 @@ export const getProfileByUsername = async (username, params = {}) => {
  * @param {Object} params Query parameters
  * @param {Number} params.postsPage Page number for posts (default: 1)
  * @param {Number} params.postsPageSize Posts per page (default: 10)
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The current user's profile
  */
-export const getCurrentProfile = async (params = {}) => {
+export const getCurrentProfile = async (params = {}, token) => {
   const { postsPage = 1, postsPageSize = 10 } = params;
-  return await authenticatedFetch(
-    `/api/users/me?postsPage=${postsPage}&postsPageSize=${postsPageSize}`
+  return await apiRequest(
+    `/api/users/me?postsPage=${postsPage}&postsPageSize=${postsPageSize}`,
+    'get',
+    null,
+    token
   );
 };
 
 /**
  * Update the current user's profile
  * @param {Object} profileData The profile data to update
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The updated profile
  */
-export const updateProfile = async (profileData) => {
-  return await authenticatedFetch('/api/users/profile', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(profileData)
-  });
+export const updateProfile = async (profileData, token) => {
+  return await apiRequest('/api/users/profile', 'put', profileData, token);
 };
 
 /**
  * Follow a user
  * @param {String} userId The user ID to follow
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The follow relationship
  */
-export const followUser = async (userId) => {
-  return await authenticatedFetch(`/api/users/follow/${userId}`, {
-    method: 'POST'
-  });
+export const followUser = async (userId, token) => {
+  return await apiRequest(`/api/users/follow/${userId}`, 'post', null, token);
 };
 
 /**
  * Unfollow a user
  * @param {String} userId The user ID to unfollow
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} Success response
  */
-export const unfollowUser = async (userId) => {
-  return await authenticatedFetch(`/api/users/follow/${userId}`, {
-    method: 'DELETE'
-  });
+export const unfollowUser = async (userId, token) => {
+  return await apiRequest(`/api/users/follow/${userId}`, 'delete', null, token);
 }; 

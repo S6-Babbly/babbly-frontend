@@ -1,53 +1,26 @@
-import { useAccessToken } from '@/lib/auth0';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
-
-// Helper function to make authenticated API requests
-const authenticatedFetch = async (endpoint, options = {}) => {
-  const { getToken } = useAccessToken();
-  const token = await getToken();
-  
-  if (!token) {
-    throw new Error('Authentication token not available');
-  }
-  
-  const headers = {
-    ...options.headers,
-    'Authorization': `Bearer ${token}`
-  };
-  
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `API request failed with status: ${response.status}`);
-  }
-  
-  return await response.json();
-};
+import { apiRequest } from '@/lib/api';
 
 /**
  * Get a paginated list of posts for the feed
  * @param {Object} params Query parameters
  * @param {Number} params.page Page number (default: 1)
  * @param {Number} params.pageSize Items per page (default: 10)
+ * @param {String} token Authentication token
  * @returns {Promise<Array>} List of aggregated posts
  */
-export const getAllPosts = async (params = {}) => {
+export const getAllPosts = async (params = {}, token) => {
   const { page = 1, pageSize = 10 } = params;
-  return await authenticatedFetch(`/api/posts?page=${page}&pageSize=${pageSize}`);
+  return await apiRequest(`/api/posts?page=${page}&pageSize=${pageSize}`, 'get', null, token);
 };
 
 /**
  * Get a single post with full details including comments
  * @param {String} postId The post ID
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The post object with comments
  */
-export const getPostById = async (postId) => {
-  return await authenticatedFetch(`/api/posts/${postId}`);
+export const getPostById = async (postId, token) => {
+  return await apiRequest(`/api/posts/${postId}`, 'get', null, token);
 };
 
 /**
@@ -55,73 +28,105 @@ export const getPostById = async (postId) => {
  * @param {Object} postData The post data
  * @param {String} postData.content The post content
  * @param {String} postData.mediaUrl Optional media URL
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The created post
  */
-export const createPost = async (postData) => {
-  return await authenticatedFetch('/api/posts', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(postData)
-  });
+export const createPost = async (postData, token) => {
+  // Ensure postData is an object with content property
+  const formattedData = typeof postData === 'string' 
+    ? { content: postData } 
+    : postData;
+  
+  // Client-side validation to match backend
+  if (!formattedData.content || !formattedData.content.trim()) {
+    throw new Error('Post content cannot be empty');
+  }
+  
+  if (formattedData.content.length > 280) {
+    throw new Error('Post content cannot exceed 280 characters');
+  }
+  
+  // Only send content and mediaUrl - backend will set userId from headers
+  const requestData = {
+    content: formattedData.content.trim()
+  };
+  
+  if (formattedData.mediaUrl) {
+    requestData.mediaUrl = formattedData.mediaUrl;
+  }
+    
+  return await apiRequest('/api/posts', 'post', requestData, token);
 };
 
 /**
  * Update an existing post
  * @param {String} postId The post ID
  * @param {Object} postData The updated post data
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The updated post
  */
-export const updatePost = async (postId, postData) => {
-  return await authenticatedFetch(`/api/posts/${postId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(postData)
-  });
+export const updatePost = async (postId, postData, token) => {
+  if (!postId) {
+    throw new Error('Post ID is required');
+  }
+  
+  // Client-side validation for content if being updated
+  if (postData.content !== undefined) {
+    if (!postData.content || !postData.content.trim()) {
+      throw new Error('Post content cannot be empty');
+    }
+    
+    if (postData.content.length > 280) {
+      throw new Error('Post content cannot exceed 280 characters');
+    }
+  }
+  
+  // Only send content and mediaUrl - backend handles authorization
+  const requestData = {};
+  
+  if (postData.content !== undefined) {
+    requestData.content = postData.content.trim();
+  }
+  
+  if (postData.mediaUrl !== undefined) {
+    requestData.mediaUrl = postData.mediaUrl;
+  }
+  
+  return await apiRequest(`/api/posts/${postId}`, 'put', requestData, token);
 };
 
 /**
  * Delete a post
  * @param {String} postId The post ID
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} Success response
  */
-export const deletePost = async (postId) => {
-  return await authenticatedFetch(`/api/posts/${postId}`, {
-    method: 'DELETE'
-  });
+export const deletePost = async (postId, token) => {
+  if (!postId) {
+    throw new Error('Post ID is required');
+  }
+  
+  return await apiRequest(`/api/posts/${postId}`, 'delete', null, token);
 };
 
 /**
  * Like or unlike a post
  * @param {String} postId The post ID
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} Updated like status
  */
-export const likePost = async (postId) => {
-  return await authenticatedFetch(`/api/likes`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ postId })
-  });
+export const likePost = async (postId, token) => {
+  return await apiRequest('/api/likes', 'post', { postId }, token);
 };
 
 /**
  * Unlike a post
  * @param {String} postId The post ID
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} Updated like status
  */
-export const unlikePost = async (postId) => {
-  return await authenticatedFetch(`/api/likes`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ postId })
-  });
+export const unlikePost = async (postId, token) => {
+  return await apiRequest('/api/likes', 'delete', { postId }, token);
 };
 
 /**
@@ -130,9 +135,10 @@ export const unlikePost = async (postId) => {
  * @param {Object} params Query parameters
  * @param {Number} params.page Page number (default: 1)
  * @param {Number} params.pageSize Items per page (default: 10)
+ * @param {String} token Authentication token
  * @returns {Promise<Array>} List of user's posts
  */
-export const getUserPosts = async (userId, params = {}) => {
+export const getUserPosts = async (userId, params = {}, token) => {
   const { page = 1, pageSize = 10 } = params;
-  return await authenticatedFetch(`/api/posts/user/${userId}?page=${page}&pageSize=${pageSize}`);
+  return await apiRequest(`/api/posts/user/${userId}?page=${page}&pageSize=${pageSize}`, 'get', null, token);
 }; 

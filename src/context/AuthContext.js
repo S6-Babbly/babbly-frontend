@@ -9,74 +9,88 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const { user, error, isLoading } = useUser();
   const [appUser, setAppUser] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [tokenError, setTokenError] = useState(null);
+  const [authError, setAuthError] = useState(null);
 
-  // Fetch token from API
-  const fetchToken = useCallback(async () => {
+  // Get access token for API calls using NextJS Auth0's built-in method
+  const getToken = useCallback(async () => {
+    if (!user) return null;
+    
     try {
       const response = await fetch('/api/auth/token');
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch token');
+        if (response.status === 401) {
+          return null; // User not authenticated
+        }
+        throw new Error('Failed to fetch token');
       }
       const data = await response.json();
-      setAccessToken(data.accessToken);
       return data.accessToken;
     } catch (error) {
       console.error('Token fetch error:', error);
-      setTokenError(error.message);
+      setAuthError(error.message);
       return null;
     }
-  }, []);
+  }, [user]);
 
   // Initialize user data after authentication
   useEffect(() => {
-    // Only proceed when auth0 has completed loading and user is authenticated
     if (isLoading) return;
     
     if (!user) {
+      // User is not logged in
       setIsInitialized(true);
       setAppUser(null);
-      setAccessToken(null);
+      setAuthError(null);
       return;
     }
 
+    // User is logged in, sync with backend
     const initializeUser = async () => {
       try {
-        // First get the access token
-        const token = await fetchToken();
+        const token = await getToken();
         
         if (!token) {
-          console.error('No token available for API calls');
+          console.log('No token available - user may need to complete authentication');
           setIsInitialized(true);
           return;
         }
 
-        // After successful Auth0 login, create or update the user in our database
-        const userProfile = await userService.createOrUpdateUserProfile(user, token);
-        setAppUser(userProfile);
+        // Sync user profile with backend
+        try {
+          const userProfile = await userService.createOrUpdateUserProfile(user, token);
+          setAppUser(userProfile);
+          setAuthError(null);
+          
+          console.log('User profile synchronized successfully:', {
+            auth0Id: userProfile.auth0Id,
+            email: userProfile.email,
+            id: userProfile.id
+          });
+        } catch (profileError) {
+          console.error('Failed to sync user profile (non-fatal):', profileError);
+          // Set a temporary user object based on Auth0 data to allow the user to proceed
+          setAppUser({
+            auth0Id: user.sub,
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+            emailVerified: user.email_verified,
+            // Mark as not synced so we can retry later
+            _profileSyncPending: true
+          });
+          setAuthError('Profile sync pending - some features may be limited');
+        }
       } catch (error) {
         console.error('Failed to initialize user:', error);
+        setAuthError(error.message);
       } finally {
         setIsInitialized(true);
       }
     };
 
     initializeUser();
-  }, [isLoading, user, fetchToken]);
-
-  // Function to get access token for API calls
-  const getToken = useCallback(async () => {
-    if (!user) return null;
-    
-    // If we already have a token, return it
-    if (accessToken) return accessToken;
-    
-    // Otherwise fetch a new token
-    return await fetchToken();
-  }, [user, accessToken, fetchToken]);
+  }, [isLoading, user, getToken]);
 
   // Refresh user profile
   const refreshUserProfile = useCallback(async () => {
@@ -91,18 +105,26 @@ export const AuthProvider = ({ children }) => {
       return profile;
     } catch (error) {
       console.error('Error refreshing user profile:', error);
+      setAuthError(error.message);
       return null;
     }
   }, [user, getToken]);
 
   const value = {
+    // Authentication state
     isAuthenticated: !!user,
     isLoading: isLoading || !isInitialized,
-    user: appUser,
-    auth0User: user,
+    
+    // User data
+    user: appUser,           // App-specific user data from backend
+    auth0User: user,         // Raw Auth0 user data
+    
+    // Methods
     getToken,
     refreshUserProfile,
-    error: error || tokenError
+    
+    // Error handling
+    error: error || authError
   };
 
   return (

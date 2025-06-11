@@ -15,6 +15,7 @@ export const createApiClient = (token = null) => {
   return axios.create({
     baseURL: API_URL,
     headers,
+    timeout: 10000, // 10 seconds
   });
 };
 
@@ -65,51 +66,26 @@ export const apiRequest = async (url, method = 'get', data = null, token = null)
   }
 };
 
-// Create the Axios instance with default config
+// Create a base Axios instance 
 const API = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 10000, // 10 seconds
 });
 
-// Request interceptor to add the auth token
-API.interceptors.request.use(
-  async (config) => {
-    // Try to get the token from our API route
-    try {
-      const response = await fetch('/api/auth/token');
-      if (response.ok) {
-        const { accessToken } = await response.json();
-        if (accessToken) {
-          config.headers['Authorization'] = `Bearer ${accessToken}`;
-        }
-      }
-    } catch (error) {
-      console.warn('Could not retrieve token:', error);
-    }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
 // Response interceptor to handle common errors
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    
     // Handle rate limiting
     if (error.response?.status === 429) {
       console.warn('Rate limit hit. Please try again later.');
     }
     
     // Handle authentication errors
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401) {
       // If token is expired, redirect to login
       if (typeof window !== 'undefined') {
         window.location.href = '/api/auth/login';
@@ -122,9 +98,10 @@ API.interceptors.response.use(
 
 // Helper methods for common API operations
 export const apiClient = {
-  get: async (url, config = {}) => {
+  get: async (url, token = null, config = {}) => {
     try {
-      const response = await API.get(url, config);
+      const api = createApiClient(token);
+      const response = await api.get(url, config);
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -132,9 +109,10 @@ export const apiClient = {
     }
   },
   
-  post: async (url, data = {}, config = {}) => {
+  post: async (url, data = {}, token = null, config = {}) => {
     try {
-      const response = await API.post(url, data, config);
+      const api = createApiClient(token);
+      const response = await api.post(url, data, config);
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -142,9 +120,10 @@ export const apiClient = {
     }
   },
   
-  put: async (url, data = {}, config = {}) => {
+  put: async (url, data = {}, token = null, config = {}) => {
     try {
-      const response = await API.put(url, data, config);
+      const api = createApiClient(token);
+      const response = await api.put(url, data, config);
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -152,9 +131,10 @@ export const apiClient = {
     }
   },
   
-  delete: async (url, config = {}) => {
+  delete: async (url, token = null, config = {}) => {
     try {
-      const response = await API.delete(url, config);
+      const api = createApiClient(token);
+      const response = await api.delete(url, config);
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -169,8 +149,6 @@ const handleApiError = (error) => {
   if (process.env.NODE_ENV !== 'production') {
     console.error('API Error:', error.response?.data || error.message);
   }
-  
-  // You could integrate with an error tracking service here
   
   // Format the error message for UI display
   let errorMessage = 'An unexpected error occurred';

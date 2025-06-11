@@ -41,6 +41,30 @@ const PostFeed = forwardRef((props, ref) => {
     }
   };
 
+  const handlePostUpdated = (updatedPost) => {
+    // Update the post in the cache
+    mutate((data) => {
+      if (!data) return data;
+      return data.map(page => ({
+        ...page,
+        items: page.items?.map(post => 
+          post.id === updatedPost.id ? updatedPost : post
+        ) || []
+      }));
+    }, false);
+  };
+
+  const handlePostDeleted = (postId) => {
+    // Remove the post from the cache
+    mutate((data) => {
+      if (!data) return data;
+      return data.map(page => ({
+        ...page,
+        items: page.items?.filter(post => post.id !== postId) || []
+      }));
+    }, false);
+  };
+
   if (isLoading && !posts.length) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -74,7 +98,12 @@ const PostFeed = forwardRef((props, ref) => {
   return (
     <div>
       {posts.map(post => (
-        <Post key={post.id} post={post} />
+        <Post 
+          key={post.id} 
+          post={post} 
+          onPostUpdated={handlePostUpdated}
+          onPostDeleted={handlePostDeleted}
+        />
       ))}
       
       <div className="p-4 text-center">

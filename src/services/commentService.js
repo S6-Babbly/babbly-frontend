@@ -1,33 +1,4 @@
-import { useAccessToken } from '@/lib/auth0';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
-
-// Helper function to make authenticated API requests
-const authenticatedFetch = async (endpoint, options = {}) => {
-  const { getToken } = useAccessToken();
-  const token = await getToken();
-  
-  if (!token) {
-    throw new Error('Authentication token not available');
-  }
-  
-  const headers = {
-    ...options.headers,
-    'Authorization': `Bearer ${token}`
-  };
-  
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `API request failed with status: ${response.status}`);
-  }
-  
-  return await response.json();
-};
+import { apiRequest } from '@/lib/api';
 
 /**
  * Get comments for a specific post
@@ -35,11 +6,12 @@ const authenticatedFetch = async (endpoint, options = {}) => {
  * @param {Object} params Query parameters
  * @param {Number} params.page Page number (default: 1)
  * @param {Number} params.pageSize Items per page (default: 10)
+ * @param {String} token Authentication token
  * @returns {Promise<Array>} List of comments
  */
-export const getPostComments = async (postId, params = {}) => {
+export const getPostComments = async (postId, params = {}, token) => {
   const { page = 1, pageSize = 10 } = params;
-  return await authenticatedFetch(`/api/comments/post/${postId}?page=${page}&pageSize=${pageSize}`);
+  return await apiRequest(`/api/comments/post/${postId}?page=${page}&pageSize=${pageSize}`, 'get', null, token);
 };
 
 /**
@@ -47,78 +19,53 @@ export const getPostComments = async (postId, params = {}) => {
  * @param {String} postId The post ID
  * @param {Object} commentData The comment data
  * @param {String} commentData.content The comment content
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The created comment
  */
-export const createComment = async (postId, commentData) => {
-  return await authenticatedFetch(`/api/comments`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      postId,
-      ...commentData
-    })
-  });
+export const createComment = async (postId, commentData, token) => {
+  return await apiRequest('/api/comments', 'post', {
+    postId,
+    ...commentData
+  }, token);
 };
 
 /**
  * Update an existing comment
  * @param {String} commentId The comment ID
  * @param {Object} commentData The updated comment data
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} The updated comment
  */
-export const updateComment = async (commentId, commentData) => {
-  return await authenticatedFetch(`/api/comments/${commentId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(commentData)
-  });
+export const updateComment = async (commentId, commentData, token) => {
+  return await apiRequest(`/api/comments/${commentId}`, 'put', commentData, token);
 };
 
 /**
  * Delete a comment
  * @param {String} commentId The comment ID
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} Success response
  */
-export const deleteComment = async (commentId) => {
-  return await authenticatedFetch(`/api/comments/${commentId}`, {
-    method: 'DELETE'
-  });
+export const deleteComment = async (commentId, token) => {
+  return await apiRequest(`/api/comments/${commentId}`, 'delete', null, token);
 };
 
 /**
  * Like a comment
  * @param {String} commentId The comment ID
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} Updated like status
  */
-export const likeComment = async (commentId) => {
-  return await authenticatedFetch(`/api/likes`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ 
-      commentId 
-    })
-  });
+export const likeComment = async (commentId, token) => {
+  return await apiRequest('/api/likes', 'post', { commentId }, token);
 };
 
 /**
  * Unlike a comment
  * @param {String} commentId The comment ID
+ * @param {String} token Authentication token
  * @returns {Promise<Object>} Updated like status
  */
-export const unlikeComment = async (commentId) => {
-  return await authenticatedFetch(`/api/likes`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ 
-      commentId 
-    })
-  });
+export const unlikeComment = async (commentId, token) => {
+  return await apiRequest('/api/likes', 'delete', { commentId }, token);
 }; 

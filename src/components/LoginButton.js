@@ -1,15 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginButton() {
   const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
   
   const handleLogin = () => {
-    // Redirect to the Auth0 login page
-    router.push('/api/auth/login');
+    // Redirect to the Auth0 login page using full page redirect
+    window.location.href = '/api/auth/login';
   };
   
   if (isLoading) {
