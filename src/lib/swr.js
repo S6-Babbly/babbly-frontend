@@ -3,7 +3,19 @@ import { apiClient } from './api';
 // Default fetcher function for SWR that uses our API client
 export const fetcher = async (url) => {
   try {
-    return await apiClient.get(url);
+    // Get the access token for authenticated requests
+    let token = null;
+    try {
+      const response = await fetch('/api/auth/token');
+      if (response.ok) {
+        const data = await response.json();
+        token = data.accessToken;
+      }
+    } catch (tokenError) {
+      console.log('No token available for request:', url);
+    }
+    
+    return await apiClient.get(url, token);
   } catch (error) {
     throw error;
   }

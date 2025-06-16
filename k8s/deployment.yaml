@@ -22,7 +22,7 @@ spec:
         - containerPort: 3000
         env:
         - name: NEXT_PUBLIC_API_URL
-          value: "http://api-gateway:8080"
+          value: "http://api-gateway:5010"
         - name: NEXT_PUBLIC_AUTH0_DOMAIN
           valueFrom:
             secretKeyRef:

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPost } from '@/services/postService';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CreatePostPage() {
   const [content, setContent] = useState('');
@@ -10,6 +11,7 @@ export default function CreatePostPage() {
   const [error, setError] = useState('');
   const [charCount, setCharCount] = useState(0);
   const router = useRouter();
+  const { isAuthenticated, getToken, isLoading } = useAuth();
   
   const MAX_CHARS = 280;
   
@@ -21,6 +23,11 @@ export default function CreatePostPage() {
   
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!isAuthenticated) {
+      setError('Please log in to create a post');
+      return;
+    }
     
     if (!content.trim()) {
       setError('Post content cannot be empty');
@@ -36,7 +43,13 @@ export default function CreatePostPage() {
     setError('');
     
     try {
-      await createPost({ content: content.trim() });
+      const token = await getToken();
+      if (!token) {
+        setError('Unable to get authentication token. Please try logging in again.');
+        return;
+      }
+      
+      await createPost({ content: content.trim() }, token);
       router.push('/');
     } catch (error) {
       console.error('Error creating post:', error);
@@ -71,6 +84,30 @@ export default function CreatePostPage() {
   const handleCancel = () => {
     router.back();
   };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-white/70 mb-4">Please log in to create a post</p>
+        <button 
+          onClick={() => window.location.href = '/api/auth/login'}
+          className="bg-primary px-6 py-2 rounded-full font-bold hover:bg-primary/90 transition-colors"
+        >
+          Sign In
+        </button>
+      </div>
+    );
+  }
   
   return (
     <div>
