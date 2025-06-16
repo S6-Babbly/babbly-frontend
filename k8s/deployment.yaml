@@ -22,7 +22,10 @@ spec:
         - containerPort: 3000
         env:
         - name: NEXT_PUBLIC_API_URL
-          value: "http://api-gateway:5010"
+          valueFrom:
+            configMapKeyRef:
+              name: babbly-external-config
+              key: API_GATEWAY_EXTERNAL_URL
         - name: NEXT_PUBLIC_AUTH0_DOMAIN
           valueFrom:
             secretKeyRef:
@@ -44,9 +47,15 @@ spec:
               name: auth0-secrets
               key: AUTH0_SECRET
         - name: AUTH0_BASE_URL
-          value: "http://localhost:3000"
+          valueFrom:
+            configMapKeyRef:
+              name: babbly-external-config
+              key: FRONTEND_EXTERNAL_URL
         - name: AUTH0_ISSUER_BASE_URL
-          value: "https://$(AUTH0_DOMAIN)"
+          valueFrom:
+            secretKeyRef:
+              name: auth0-secrets
+              key: AUTH0_DOMAIN
         - name: AUTH0_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
