@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
+// Use relative URLs for API calls - Next.js rewrites will handle proxying to external API Gateway
+const API_URL = '/api';
 
 /**
  * Create an axios instance for API calls
