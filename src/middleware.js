@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@auth0/nextjs-auth0/edge';
 
-// Define an array of protected routes that require authentication
+// DEMO MODE: Disable route protection for demo purposes
+// Define an array of protected routes (currently disabled for demo)
 const PROTECTED_ROUTES = [
-  '/profile',
-  '/settings',
-  '/create',
-  '/messages',
+  // '/profile',     // Commented out for demo
+  // '/settings',    // Commented out for demo  
+  // '/create',      // Commented out for demo
+  // '/messages',    // Commented out for demo
 ];
 
 export default async function middleware(request) {
-  // Check if the path is a protected route
+  // DEMO MODE: Allow access to all routes without authentication
   const path = request.nextUrl.pathname;
   const isProtectedRoute = PROTECTED_ROUTES.some(route => path.startsWith(route));
+  
+  // For demo purposes, we'll log what would have been protected but allow access
+  if (path.startsWith('/profile') || path.startsWith('/settings') || path.startsWith('/create') || path.startsWith('/messages')) {
+    console.log(`Demo mode: Allowing access to ${path} without authentication`);
+  }
   
   if (isProtectedRoute) {
     // Get the session from the edge
@@ -44,7 +50,7 @@ export default async function middleware(request) {
     return response;
   }
   
-  // Otherwise, continue with the request
+  // DEMO MODE: Allow all other requests to proceed without authentication checks
   return NextResponse.next();
 }
 

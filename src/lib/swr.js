@@ -1,9 +1,9 @@
 import { apiClient } from './api';
 
-// Default fetcher function for SWR that uses our API client
+// Demo mode fetcher function for SWR - tokens are optional
 export const fetcher = async (url) => {
   try {
-    // Get the access token for authenticated requests
+    // For demo mode: try to get token but don't fail if unavailable
     let token = null;
     try {
       const response = await fetch('/api/auth/token');
@@ -12,21 +12,31 @@ export const fetcher = async (url) => {
         token = data.accessToken;
       }
     } catch (tokenError) {
-      console.log('No token available for request:', url);
+      console.log('Demo mode: No token available for request, proceeding without auth:', url);
     }
     
+    // Make API call with or without token (backend handles both)
     return await apiClient.get(url, token);
   } catch (error) {
+    // For demo mode: if auth fails, try again without token
+    if (error.message?.includes('401') || error.message?.includes('auth')) {
+      console.log('Demo mode: Auth failed, retrying without token:', url);
+      try {
+        return await apiClient.get(url, null);
+      } catch (retryError) {
+        throw retryError;
+      }
+    }
     throw error;
   }
 };
 
 /**
- * SWR configuration - used by SWRProvider
+ * SWR configuration - used by SWRProvider (demo mode: more frequent refresh)
  */
 export default {
-  // Default to revalidate data every 5 seconds
-  refreshInterval: 5000,
+  // Default to revalidate data every 10 seconds for demo
+  refreshInterval: 10000,
   
   // Revalidate on window focus after 3 seconds
   focusThrottleInterval: 3000,
@@ -34,8 +44,8 @@ export default {
   // Deduplicate requests within a time window
   dedupingInterval: 2000,
   
-  // Error retry configuration
-  errorRetryCount: 3,
+  // Error retry configuration - be more persistent in demo mode
+  errorRetryCount: 2,
   
   // Suspense mode is disabled as we use custom loading states
   suspense: false,

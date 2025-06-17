@@ -28,12 +28,6 @@ export default function CreatePostForm({ onPostCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Check authentication before submitting
-    if (!isAuthenticated) {
-      setFormError('Please log in to create a post');
-      return;
-    }
-    
     if (!content.trim()) {
       setFormError('Post content cannot be empty');
       return;
@@ -48,13 +42,26 @@ export default function CreatePostForm({ onPostCreated }) {
     setFormError('');
     
     try {
-      const token = await getToken();
-      if (!token) {
-        setFormError('Unable to get authentication token. Please try logging in again.');
-        return;
+      // DEMO MODE: Try to get token but proceed without it if unavailable
+      let token = null;
+      try {
+        if (isAuthenticated) {
+          token = await getToken();
+        }
+      } catch (tokenError) {
+        console.log('Demo mode: Proceeding without token');
       }
       
-      const newPost = await createPost({ content: content.trim() }, token);
+      // For demo mode: include a demo userId if not authenticated
+      const postData = {
+        content: content.trim()
+      };
+      
+      if (!isAuthenticated) {
+        postData.userId = 'demo-user-1'; // Default demo user
+      }
+      
+      const newPost = await createPost(postData, token);
       setContent('');
       setCharCount(0);
       if (onPostCreated) {
@@ -66,20 +73,8 @@ export default function CreatePostForm({ onPostCreated }) {
       // Handle specific backend error messages
       const errorMessage = error.message;
       
-      if (errorMessage.includes('Authentication token not available') || 
-          errorMessage.includes('Authentication required')) {
-        setFormError('Please log in to create a post');
-      } else if (errorMessage.includes('session has expired') || 
-                 errorMessage.includes('401') || 
-                 errorMessage.includes('Unauthorized')) {
-        setFormError('Your session has expired. Please log in again');
-      } else if (errorMessage.includes('Cannot create posts for other users') ||
-                 errorMessage.includes('Insufficient permissions') ||
-                 errorMessage.includes('403') || 
-                 errorMessage.includes('Forbidden')) {
-        setFormError('You do not have permission to create posts');
-      } else if (errorMessage.includes('Post content cannot be empty') ||
-                 errorMessage.includes('Post content cannot exceed')) {
+      if (errorMessage.includes('Post content cannot be empty') ||
+          errorMessage.includes('Post content cannot exceed')) {
         setFormError(errorMessage); // Show the exact backend validation message
       } else if (errorMessage.includes('400') || errorMessage.includes('Bad Request')) {
         setFormError('Invalid post content. Please check your input');
@@ -103,69 +98,53 @@ export default function CreatePostForm({ onPostCreated }) {
     );
   }
   
-  // Show error state if Auth0 has an error
+  // Show error state if Auth0 has an error (but still allow posting in demo mode)
   if (authError && authError !== 'Not authenticated') {
-    return (
-      <div className="border-b border-white/20 p-4">
-        <div className="bg-red-400/10 rounded-lg p-4 text-center">
-          <p className="text-red-400 mb-4">
-            Authentication Error: {authError}
-          </p>
-          <button 
-            onClick={handleLogin}
-            className="bg-primary px-6 py-2 rounded-full font-bold hover:bg-primary/90 transition-colors"
-          >
-            Try Login Again
-          </button>
-        </div>
-      </div>
-    );
+    console.warn('Demo mode: Auth error but allowing posting anyway:', authError);
   }
   
-  // Show login prompt if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="border-b border-white/20 p-4">
-        <div className="flex gap-4">
-          <div className="w-12 h-12 rounded-full bg-white/20"></div>
-          <div className="flex-1">
-            <div className="bg-white/5 rounded-lg p-4 text-center">
-              <p className="text-white/70 mb-4">Sign in to share your thoughts with the world!</p>
-              <button 
-                onClick={handleLogin}
-                className="bg-primary px-6 py-2 rounded-full font-bold hover:bg-primary/90 transition-colors"
-              >
-                Sign In
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Get user display info (Auth0 user if authenticated, demo user if not)
+  const displayUser = isAuthenticated ? auth0User : {
+    name: 'Demo User',
+    picture: null,
+    email: 'demo@example.com'
+  };
   
-  // Show post form for authenticated users
+  // Show post form (always available in demo mode)
   return (
     <div className="border-b border-white/20 p-4">
+      {/* Optional login prompt for visual purposes */}
+      {!isAuthenticated && (
+        <div className="bg-blue-500/10 rounded-lg p-3 mb-4 text-center">
+          <p className="text-blue-400 text-sm mb-2">Demo Mode: You can post without logging in, or</p>
+          <button 
+            onClick={handleLogin}
+            className="bg-primary px-4 py-1 rounded-full text-sm font-bold hover:bg-primary/90 transition-colors"
+          >
+            Sign In with Auth0
+          </button>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit} className="space-y-0">
         <div className="flex gap-4">
           <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-            {auth0User?.picture ? (
+            {displayUser?.picture ? (
               <img 
-                src={auth0User.picture} 
-                alt={auth0User.name || 'User'} 
+                src={displayUser.picture} 
+                alt={displayUser.name || 'User'} 
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
               <div className="w-full h-full rounded-full bg-primary flex items-center justify-center text-white font-bold">
-                {(auth0User?.name || auth0User?.email || 'U').charAt(0).toUpperCase()}
+                {(displayUser?.name || displayUser?.email || 'U').charAt(0).toUpperCase()}
               </div>
             )}
           </div>
           <div className="flex-1">
             <textarea 
               className="w-full bg-transparent text-xl placeholder-white/50 border-none focus:ring-0 resize-none min-h-[100px]"
-              placeholder="What's happening?"
+              placeholder={isAuthenticated ? "What's happening?" : "What's happening? (Demo Mode)"}
               value={content}
               onChange={handleContentChange}
               disabled={isSubmitting}
@@ -174,21 +153,13 @@ export default function CreatePostForm({ onPostCreated }) {
             {formError && (
               <div className="text-red-400 text-sm mt-2 p-2 bg-red-400/10 rounded">
                 {formError}
-                {(formError.includes('log in') || formError.includes('expired')) && (
-                  <button 
-                    onClick={handleLogin}
-                    type="button"
-                    className="ml-2 underline hover:no-underline"
-                  >
-                    Sign In
-                  </button>
-                )}
               </div>
             )}
             
             <div className="flex justify-between items-center mt-4 border-t border-white/20 pt-4">
               <div className="text-sm text-white/50">
                 {charCount}/{MAX_CHARS}
+                {!isAuthenticated && <span className="ml-2 text-blue-400">(Demo Mode)</span>}
               </div>
               <button 
                 type="submit"
