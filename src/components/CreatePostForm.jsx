@@ -42,23 +42,23 @@ export default function CreatePostForm({ onPostCreated }) {
     setFormError('');
     
     try {
-      // DEMO MODE: Try to get token but proceed without it if unavailable
+      // Try to get token but proceed without it if unavailable
       let token = null;
       try {
         if (isAuthenticated) {
           token = await getToken();
         }
       } catch (tokenError) {
-        console.log('Demo mode: Proceeding without token');
+        console.log('Proceeding without token');
       }
       
-      // For demo mode: include a demo userId if not authenticated
+      // Include a default userId if not authenticated
       const postData = {
         content: content.trim()
       };
       
       if (!isAuthenticated) {
-        postData.userId = 'demo-user-1'; // Default demo user
+        postData.userId = 'guest-user-1'; // Default user for anonymous posts
       }
       
       const newPost = await createPost(postData, token);
@@ -98,30 +98,30 @@ export default function CreatePostForm({ onPostCreated }) {
     );
   }
   
-  // Show error state if Auth0 has an error (but still allow posting in demo mode)
+  // Show error state if Auth0 has an error (but still allow posting)
   if (authError && authError !== 'Not authenticated') {
-    console.warn('Demo mode: Auth error but allowing posting anyway:', authError);
+    console.warn('Auth error but allowing posting anyway:', authError);
   }
   
-  // Get user display info (Auth0 user if authenticated, demo user if not)
+  // Get user display info (Auth0 user if authenticated, default user if not)
   const displayUser = isAuthenticated ? auth0User : {
-    name: 'Demo User',
+    name: 'Guest User',
     picture: null,
-    email: 'demo@example.com'
+    email: 'guest@example.com'
   };
   
-  // Show post form (always available in demo mode)
+  // Show post form (always available)
   return (
     <div className="border-b border-white/20 p-4">
-      {/* Optional login prompt for visual purposes */}
+      {/* Optional login prompt */}
       {!isAuthenticated && (
         <div className="bg-blue-500/10 rounded-lg p-3 mb-4 text-center">
-          <p className="text-blue-400 text-sm mb-2">Demo Mode: You can post without logging in, or</p>
+          <p className="text-blue-400 text-sm mb-2">Join the conversation</p>
           <button 
             onClick={handleLogin}
             className="bg-primary px-4 py-1 rounded-full text-sm font-bold hover:bg-primary/90 transition-colors"
           >
-            Sign In with Auth0
+            Sign In
           </button>
         </div>
       )}
@@ -144,7 +144,7 @@ export default function CreatePostForm({ onPostCreated }) {
           <div className="flex-1">
             <textarea 
               className="w-full bg-transparent text-xl placeholder-white/50 border-none focus:ring-0 resize-none min-h-[100px]"
-              placeholder={isAuthenticated ? "What's happening?" : "What's happening? (Demo Mode)"}
+              placeholder="What's happening?"
               value={content}
               onChange={handleContentChange}
               disabled={isSubmitting}
@@ -159,7 +159,6 @@ export default function CreatePostForm({ onPostCreated }) {
             <div className="flex justify-between items-center mt-4 border-t border-white/20 pt-4">
               <div className="text-sm text-white/50">
                 {charCount}/{MAX_CHARS}
-                {!isAuthenticated && <span className="ml-2 text-blue-400">(Demo Mode)</span>}
               </div>
               <button 
                 type="submit"

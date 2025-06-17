@@ -5,12 +5,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010';
 
 /**
  * Create an axios instance for API calls
- * For DEMO MODE: tokens are optional, backend doesn't require auth
  */
 export const createApiClient = (token = null) => {
   const headers = {};
   
-  // For demo mode: token is optional, backend handles requests without auth
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -23,11 +21,11 @@ export const createApiClient = (token = null) => {
 };
 
 /**
- * Make an API request (demo mode: no authentication required)
+ * Make an API request
  * @param {string} url - The URL to call
  * @param {string} method - HTTP method (get, post, put, delete)
  * @param {object} data - Request body for POST/PUT calls
- * @param {string} token - Auth token (optional for demo)
+ * @param {string} token - Auth token (optional)
  */
 export const apiRequest = async (url, method = 'get', data = null, token = null) => {
   try {
@@ -50,15 +48,12 @@ export const apiRequest = async (url, method = 'get', data = null, token = null)
       // that falls out of the range of 2xx
       const { status, data } = error.response;
       
-      // For demo mode: reduce auth-related errors
       if (status === 401) {
-        console.warn('Demo mode: API call made without auth, but backend should allow it');
-        throw new Error('Demo mode: Request failed, but auth is optional');
+        throw new Error('Unauthorized. Please login again.');
       }
       
       if (status === 403) {
-        console.warn('Demo mode: Permission denied, but should work without auth');
-        throw new Error('Demo mode: Permission denied');
+        throw new Error('You do not have permission to perform this action.');
       }
       
       throw new Error(data.error || 'An error occurred while making the request');
@@ -81,7 +76,7 @@ const API = axios.create({
   timeout: 10000, // 10 seconds
 });
 
-// Response interceptor to handle common errors (demo mode: less strict)
+// Response interceptor to handle common errors
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -90,16 +85,16 @@ API.interceptors.response.use(
       console.warn('Rate limit hit. Please try again later.');
     }
     
-    // For demo mode: don't redirect on auth errors, just log them
+    // Handle authentication errors
     if (error.response?.status === 401) {
-      console.warn('Demo mode: Got 401 but not redirecting to login');
+      console.warn('Authentication required');
     }
     
     return Promise.reject(error);
   }
 );
 
-// Helper methods for common API operations (demo mode: tokens optional)
+// Helper methods for common API operations
 export const apiClient = {
   get: async (url, token = null, config = {}) => {
     try {
@@ -146,7 +141,7 @@ export const apiClient = {
   },
 };
 
-// Centralized error handling (demo mode: more lenient)
+// Centralized error handling
 const handleApiError = (error) => {
   // Log errors to console in development
   if (process.env.NODE_ENV !== 'production') {
@@ -165,10 +160,10 @@ const handleApiError = (error) => {
         errorMessage = data.message || 'Invalid request';
         break;
       case 401:
-        errorMessage = 'Demo mode: Auth optional, but request failed';
+        errorMessage = 'You need to log in again';
         break;
       case 403:
-        errorMessage = 'Demo mode: Permission issue, but should work without auth';
+        errorMessage = 'You do not have permission to access this resource';
         break;
       case 404:
         errorMessage = 'The requested resource was not found';
