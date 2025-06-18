@@ -1,142 +1,116 @@
 import { apiRequest } from '@/lib/api';
 
-export const userService = {
-  // Create or update user profile after Auth0 login
-  async createOrUpdateUserProfile(userProfile, token) {
-    if (!userProfile) {
-      throw new Error('User profile is required');
-    }
-    
-    if (!token) {
-      throw new Error('Authentication token is required');
-    }
-    
-    try {
-      const profileData = {
-        auth0Id: userProfile.sub,
-        email: userProfile.email,
-        fullName: userProfile.name,
-        firstName: userProfile.given_name,
-        lastName: userProfile.family_name,
-        username: userProfile.nickname || userProfile.preferred_username,
-        picture: userProfile.picture,
-        emailVerified: userProfile.email_verified,
-        updatedAt: userProfile.updated_at
-      };
-      
-      const result = await apiRequest(
-        '/api/users/profile',
-        'post',
-        profileData,
-        token
-      );
-      
-      console.log('User profile sync successful:', {
-        auth0Id: result.auth0Id,
-        email: result.email,
-        id: result.id,
-        isNewUser: !result.updatedAt || result.createdAt === result.updatedAt
-      });
-      
-      return result;
-    } catch (error) {
-      console.error('Error creating/updating user profile:', error);
-      
-      // Enhance error message for better debugging
-      if (error.message.includes('Auth0Id is required')) {
-        throw new Error('Invalid Auth0 user data - missing user ID');
-      } else if (error.message.includes('Email is required')) {
-        throw new Error('Invalid Auth0 user data - missing email');
-      } else if (error.message.includes('Cannot create or update another user\'s profile')) {
-        throw new Error('Authentication mismatch - please log out and log back in');
-      } else {
-        throw new Error(`User profile sync failed: ${error.message}`);
-      }
-    }
-  },
-  
-  // Get the current user's profile
-  async getCurrentUserProfile(token) {
-    if (!token) {
-      throw new Error('Authentication token not available');
-    }
-    
-    try {
-      return await apiRequest('/api/users/me', 'get', null, token);
-    } catch (error) {
-      console.error('Error getting user profile:', error);
-      throw error;
-    }
-  },
-  
-  // Validate authorization for a specific resource via User service
-  async validateAuthorization(resourcePath, operation, token) {
-    if (!token) {
-      return false;
-    }
-    
-    try {
-      // Use the API Gateway's authorization endpoint
-      const result = await apiRequest(
-        `/api/users/authorize?resourcePath=${encodeURIComponent(resourcePath)}&operation=${encodeURIComponent(operation)}`,
-        'get',
-        null,
-        token
-      );
-      return result.isAuthorized === true;
-    } catch (error) {
-      console.error('Error validating authorization:', error);
-      return false;
-    }
-  },
-  
-  // Get user info from token
-  async getUserInfo(token) {
-    if (!token) {
-      throw new Error('Authentication token not available');
-    }
-    
-    try {
-      return await apiRequest('/api/auth/userinfo', 'get', null, token);
-    } catch (error) {
-      console.error('Error getting user info:', error);
-      throw error;
-    }
-  },
+/**
+ * Create a new user profile based on Auth0 data
+ */
+export const createUserProfile = async (auth0User, token) => {
+  try {
+    const userData = {
+      auth0Id: auth0User.sub,
+      email: auth0User.email,
+      fullName: auth0User.name,
+      firstName: auth0User.given_name,
+      lastName: auth0User.family_name,
+      username: auth0User.nickname || auth0User.email.split('@')[0],
+      picture: auth0User.picture,
+      emailVerified: auth0User.email_verified
+    };
 
-  // Update user profile
-  async updateUserProfile(userId, profileData, token) {
-    if (!token) {
-      throw new Error('Authentication token not available');
-    }
+    const newUser = await apiRequest('/api/users/profile', 'post', userData, token);
     
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-    
-    try {
-      return await apiRequest(`/api/users/${userId}`, 'put', profileData, token);
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-      throw error;
-    }
-  },
-
-  // Delete user account
-  async deleteUserAccount(userId, token) {
-    if (!token) {
-      throw new Error('Authentication token not available');
-    }
-    
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-    
-    try {
-      return await apiRequest(`/api/users/${userId}`, 'delete', null, token);
-    } catch (error) {
-      console.error('Error deleting user account:', error);
-      throw error;
-    }
+    return newUser;
+  } catch (error) {
+    throw new Error(error.message || 'Failed to create user profile');
   }
+};
+
+/**
+ * Sync user profile with Auth0 data (create or update)
+ */
+export const syncUserProfile = async (auth0User, token) => {
+  try {
+    const userData = {
+      auth0Id: auth0User.sub,
+      email: auth0User.email,
+      fullName: auth0User.name,
+      firstName: auth0User.given_name,
+      lastName: auth0User.family_name,
+      username: auth0User.nickname || auth0User.email.split('@')[0],
+      picture: auth0User.picture,
+      emailVerified: auth0User.email_verified
+    };
+
+    const user = await apiRequest('/api/users/profile', 'post', userData, token);
+    
+    return user;
+  } catch (error) {
+    throw new Error(error.message || 'Failed to sync user profile');
+  }
+};
+
+/**
+ * Get current user profile 
+ */
+export const getUserProfile = async (token) => {
+  try {
+    return await apiRequest('/api/users/me', 'get', null, token);
+  } catch (error) {
+    throw new Error(error.message || 'Failed to get user profile');
+  }
+};
+
+/**
+ * Validate user authorization for a specific action
+ */
+export const validateAuthorization = async (resource, action, token) => {
+  try {
+    const response = await apiRequest('/api/auth/validate', 'post', { resource, action }, token);
+    return response.authorized === true;
+  } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Get user information by username
+ */
+export const getUserInfo = async (username, token) => {
+  try {
+    return await apiRequest(`/api/users/username/${username}`, 'get', null, token);
+  } catch (error) {
+    throw new Error(error.message || 'Failed to get user info');
+  }
+};
+
+/**
+ * Update user profile
+ */
+export const updateUserProfile = async (profileData, token) => {
+  try {
+    return await apiRequest('/api/users/profile', 'put', profileData, token);
+  } catch (error) {
+    throw new Error(error.message || 'Failed to update user profile');
+  }
+};
+
+/**
+ * Delete user account
+ */
+export const deleteUserAccount = async (token) => {
+  try {
+    return await apiRequest('/api/users/me', 'delete', null, token);
+  } catch (error) {
+    throw new Error(error.message || 'Failed to delete user account');
+  }
+};
+
+// Export as default object for compatibility
+export const userService = {
+  createUserProfile,
+  syncUserProfile,
+  getUserProfile,
+  validateAuthorization,
+  getUserInfo,
+  updateUserProfile,
+  deleteUserAccount
 }; 

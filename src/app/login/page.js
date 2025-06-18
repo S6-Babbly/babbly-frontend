@@ -2,25 +2,27 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { useUser } from '@auth0/nextjs-auth0/client';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
-  const { user, isLoading } = useUser();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   
-  // Redirect to home if already logged in
+  // Redirect to home if authenticated
   useEffect(() => {
-    if (user && !isLoading) {
+    if (isAuthenticated && !isLoading) {
       router.push('/');
     }
-  }, [user, isLoading, router]);
+  }, [isAuthenticated, isLoading, router]);
   
-  if (isLoading) return (
-    <div className="flex justify-center items-center min-h-[50vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-    </div>
-  );
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
   
   return (
     <div>
@@ -61,21 +63,22 @@ export default function LoginPage() {
           </div>
           
           <div className="mt-10 pt-6 border-t border-white/20">
+            <div className="text-center text-white/60 text-sm space-y-2">
+              <p><strong>How it works:</strong></p>
+              <ul className="list-disc list-inside space-y-1 text-left">
+                <li>Sign in with Auth0 (secure authentication)</li>
+                <li>New users: We'll create your Babbly profile automatically</li>
+                <li>Returning users: You'll be logged in immediately</li>
+                <li>Start posting and connecting with others!</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-white/20">
             <p className="text-center text-white/60 text-sm">
               By signing up, you agree to our Terms of Service and Privacy Policy
             </p>
           </div>
-        </div>
-        
-        <div className="max-w-md mx-auto mt-8 p-4 bg-white/5 backdrop-blur-sm rounded-lg">
-          <p className="text-sm text-white/70 mb-2">
-            <strong>Note for admins:</strong> For further customization of the Auth0 login page:
-          </p>
-          <ol className="text-sm text-white/70 list-decimal pl-5 space-y-1">
-            <li>Go to Auth0 Dashboard &gt; Branding &gt; Universal Login</li>
-            <li>Customize colors, logo, and text elements</li>
-            <li>Or enable &quot;Customize Page&quot; for advanced HTML/CSS editing</li>
-          </ol>
         </div>
       </div>
     </div>

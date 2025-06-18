@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { createPost } from '@/services/postService';
 
 export default function CreatePostForm({ onPostCreated }) {
-  const { isAuthenticated, isLoading, auth0User, getToken, error: authError } = useAuth();
+  const { isAuthenticated, isLoading, auth0User, user, getToken, error: authError } = useAuth();
   
   // Always call hooks in the same order
   const [content, setContent] = useState('');
@@ -28,6 +28,12 @@ export default function CreatePostForm({ onPostCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Require authentication for posting
+    if (!isAuthenticated) {
+      setFormError('You must be logged in to create a post');
+      return;
+    }
+    
     if (!content.trim()) {
       setFormError('Post content cannot be empty');
       return;
@@ -42,24 +48,17 @@ export default function CreatePostForm({ onPostCreated }) {
     setFormError('');
     
     try {
-      // Try to get token but proceed without it if unavailable
-      let token = null;
-      try {
-        if (isAuthenticated) {
-          token = await getToken();
-        }
-      } catch (tokenError) {
-        console.log('Proceeding without token');
+      // Get authentication token
+      const token = await getToken();
+      if (!token) {
+        setFormError('Authentication required. Please log in again.');
+        return;
       }
       
-      // Include a default userId if not authenticated
+      // Create post data - backend will use user from JWT token
       const postData = {
         content: content.trim()
       };
-      
-      if (!isAuthenticated) {
-        postData.userId = 'guest-user-1'; // Default user for anonymous posts
-      }
       
       const newPost = await createPost(postData, token);
       setContent('');
@@ -76,6 +75,8 @@ export default function CreatePostForm({ onPostCreated }) {
       if (errorMessage.includes('Post content cannot be empty') ||
           errorMessage.includes('Post content cannot exceed')) {
         setFormError(errorMessage); // Show the exact backend validation message
+      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        setFormError('Authentication required. Please log in again.');
       } else if (errorMessage.includes('400') || errorMessage.includes('Bad Request')) {
         setFormError('Invalid post content. Please check your input');
       } else {
@@ -98,41 +99,46 @@ export default function CreatePostForm({ onPostCreated }) {
     );
   }
   
-  // Show error state if Auth0 has an error (but still allow posting)
-  if (authError && authError !== 'Not authenticated') {
-    console.warn('Auth error but allowing posting anyway:', authError);
+  // Show error state if Auth0 has an error
+  if (authError && authError !== 'An error occurred while making the request') {
+    console.warn('Auth error:', authError);
   }
   
-  // Get user display info (Auth0 user if authenticated, default user if not)
-  const displayUser = isAuthenticated ? auth0User : {
-    name: 'Guest User',
-    picture: null,
-    email: 'guest@example.com'
-  };
-  
-  // Show post form (always available)
-  return (
-    <div className="border-b border-white/20 p-4">
-      {/* Optional login prompt */}
-      {!isAuthenticated && (
-        <div className="bg-blue-500/10 rounded-lg p-3 mb-4 text-center">
-          <p className="text-blue-400 text-sm mb-2">Join the conversation</p>
+  // If not authenticated, show login prompt only
+  if (!isAuthenticated) {
+    return (
+      <div className="border-b border-white/20 p-4">
+        <div className="bg-blue-500/10 rounded-lg p-6 text-center">
+          <h3 className="text-lg font-bold text-blue-400 mb-2">Join the conversation</h3>
+          <p className="text-blue-400 text-sm mb-4">Sign in to share your thoughts and connect with others</p>
           <button 
             onClick={handleLogin}
-            className="bg-primary px-4 py-1 rounded-full text-sm font-bold hover:bg-primary/90 transition-colors"
+            className="bg-primary px-6 py-2 rounded-full text-sm font-bold hover:bg-primary/90 transition-colors"
           >
-            Sign In
+            Sign In to Post
           </button>
         </div>
-      )}
-      
+      </div>
+    );
+  }
+  
+  // Get user display info from authenticated user
+  const displayUser = user || auth0User || {
+    name: 'User',
+    picture: null,
+    email: 'user@example.com'
+  };
+  
+  // Show post form for authenticated users
+  return (
+    <div className="border-b border-white/20 p-4">
       <form onSubmit={handleSubmit} className="space-y-0">
         <div className="flex gap-4">
           <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
             {displayUser?.picture ? (
               <img 
                 src={displayUser.picture} 
-                alt={displayUser.name || 'User'} 
+                alt={displayUser.name || displayUser.email || 'User'} 
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (

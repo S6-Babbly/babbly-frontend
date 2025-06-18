@@ -87,30 +87,42 @@ export default function Sidebar() {
       </div>
       
       <div className="mt-auto space-y-4">
-        {isAuthenticated && !isLoading && user && (
+        {isAuthenticated && user && (
           <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              {user.picture ? (
+              {user.extraData?.profilePicture || user.picture ? (
                 <img 
-                  src={user.picture} 
-                  alt={user.name || 'User avatar'} 
-                  className="w-12 h-12 rounded-full border-2 border-primary"
+                  src={user.extraData?.profilePicture || user.picture} 
+                  alt={user.fullName || user.username} 
+                  className="w-12 h-12 rounded-full border-2 border-primary object-cover"
                 />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-                  {(user.name || 'User')[0].toUpperCase()}
+                  {(user.fullName || user.username || 'U')[0].toUpperCase()}
                 </div>
               )}
-              <div>
-                <div className="font-bold text-white">{user.name || 'User'}</div>
-                <div className="text-white/60 text-sm">{user.email || ''}</div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-white truncate">
+                  {user.extraData?.displayName || user.fullName || user.username}
+                </div>
+                <div className="text-white/60 text-sm truncate">
+                  @{user.username}
+                </div>
               </div>
             </div>
           </div>
         )}
         
         <div className="w-full">
-          {!isAuthenticated ? <LoginButton /> : <LogoutButton />}
+          {isLoading ? (
+            <div className="bg-white/10 rounded-full py-3 px-4 text-center">
+              Loading...
+            </div>
+          ) : !isAuthenticated ? (
+            <LoginButton />
+          ) : (
+            <LogoutButton />
+          )}
         </div>
       </div>
     </div>

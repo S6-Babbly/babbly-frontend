@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import Comment from './Comment';
 import CommentForm from './CommentForm';
@@ -20,10 +20,12 @@ export default function CommentSection({ postId, onCommentCountChange }) {
   const comments = data?.items || [];
   const hasMore = comments.length === pageSize;
   
-  // Update comment count in parent component if needed
-  if (onCommentCountChange && data?.total !== undefined) {
-    onCommentCountChange(data.total);
-  }
+  // Update comment count in parent component using useEffect to avoid setState during render
+  useEffect(() => {
+    if (onCommentCountChange && data?.total !== undefined) {
+      onCommentCountChange(data.total);
+    }
+  }, [data?.total, onCommentCountChange]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;

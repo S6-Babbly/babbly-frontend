@@ -45,7 +45,6 @@ export default function withAuthorization(Component, resourcePath, operation = '
           
           setIsAuthorized(authorized);
         } catch (error) {
-          console.error('Authorization check failed:', error);
           setIsAuthorized(false);
         } finally {
           setIsAuthorizationChecking(false);

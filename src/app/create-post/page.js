@@ -52,32 +52,8 @@ export default function CreatePostPage() {
       await createPost({ content: content.trim() }, token);
       router.push('/');
     } catch (error) {
-      console.error('Error creating post:', error);
-      
-      // Handle specific backend error messages
-      const errorMessage = error.message;
-      
-      if (errorMessage.includes('Authentication token not available') || 
-          errorMessage.includes('Authentication required')) {
-        setError('Please log in to create a post');
-      } else if (errorMessage.includes('session has expired') || 
-                 errorMessage.includes('401') || 
-                 errorMessage.includes('Unauthorized')) {
-        setError('Your session has expired. Please log in again');
-      } else if (errorMessage.includes('Cannot create posts for other users') ||
-                 errorMessage.includes('Insufficient permissions') ||
-                 errorMessage.includes('403') || 
-                 errorMessage.includes('Forbidden')) {
-        setError('You do not have permission to create posts');
-      } else if (errorMessage.includes('Post content cannot be empty') ||
-                 errorMessage.includes('Post content cannot exceed')) {
-        setError(errorMessage); // Show the exact backend validation message
-      } else if (errorMessage.includes('400') || errorMessage.includes('Bad Request')) {
-        setError('Invalid post content. Please check your input');
-      } else {
-        setError(`Failed to create post: ${errorMessage}`);
-      }
-      setIsSubmitting(false);
+      setIsLoading(false);
+      setError(error.message || 'Failed to create post');
     }
   };
   

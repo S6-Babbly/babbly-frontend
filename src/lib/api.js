@@ -56,6 +56,10 @@ export const apiRequest = async (url, method = 'get', data = null, token = null)
         throw new Error('You do not have permission to perform this action.');
       }
       
+      if (status === 404) {
+        throw new Error('Resource not found (404)');
+      }
+      
       throw new Error(data.error || 'An error occurred while making the request');
     } else if (error.request) {
       // The request was made but no response was received
@@ -80,17 +84,19 @@ const API = axios.create({
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // Handle rate limiting
+    // Handle rate limiting gracefully
     if (error.response?.status === 429) {
-      console.warn('Rate limit hit. Please try again later.');
+      // Rate limit hit - wait and retry
+      throw new Error('Too many requests. Please try again later.');
     }
     
-    // Handle authentication errors
+    // Handle auth errors
     if (error.response?.status === 401) {
-      console.warn('Authentication required');
+      throw new Error('Authentication required');
     }
     
-    return Promise.reject(error);
+    // Re-throw the error for handling by the caller
+    throw error;
   }
 );
 
@@ -143,11 +149,6 @@ export const apiClient = {
 
 // Centralized error handling
 const handleApiError = (error) => {
-  // Log errors to console in development
-  if (process.env.NODE_ENV !== 'production') {
-    console.error('API Error:', error.response?.data || error.message);
-  }
-  
   // Format the error message for UI display
   let errorMessage = 'An unexpected error occurred';
   

@@ -28,8 +28,7 @@ export const getPostById = async (postId, token = null) => {
  * @param {Object} postData The post data
  * @param {String} postData.content The post content
  * @param {String} postData.mediaUrl Optional media URL
- * @param {String} postData.userId Optional user ID
- * @param {String} token Authentication token (optional)
+ * @param {String} token Authentication token (required)
  * @returns {Promise<Object>} The created post
  */
 export const createPost = async (postData, token = null) => {
@@ -47,18 +46,18 @@ export const createPost = async (postData, token = null) => {
     throw new Error('Post content cannot exceed 280 characters');
   }
   
-  // Prepare request data
+  // Authentication is required for creating posts
+  if (!token) {
+    throw new Error('Authentication required to create posts');
+  }
+  
+  // Prepare request data - backend will get userId from JWT token
   const requestData = {
     content: formattedData.content.trim()
   };
   
   if (formattedData.mediaUrl) {
     requestData.mediaUrl = formattedData.mediaUrl;
-  }
-  
-  // Include userId if provided (backend will use this or default)
-  if (formattedData.userId) {
-    requestData.userId = formattedData.userId;
   }
     
   return await apiRequest('/api/posts', 'post', requestData, token);
@@ -118,21 +117,31 @@ export const deletePost = async (postId, token = null) => {
 /**
  * Like or unlike a post
  * @param {String} postId The post ID
- * @param {String} token Authentication token (optional)
+ * @param {String} token Authentication token (required)
  * @returns {Promise<Object>} Updated like status
  */
 export const likePost = async (postId, token = null) => {
+  if (!token) {
+    throw new Error('Authentication required to like posts');
+  }
+  
+  // Backend will get userId from JWT token
   return await apiRequest('/api/likes', 'post', { postId }, token);
 };
 
 /**
  * Unlike a post
  * @param {String} postId The post ID
- * @param {String} token Authentication token (optional)
+ * @param {String} token Authentication token (required)
  * @returns {Promise<Object>} Updated like status
  */
 export const unlikePost = async (postId, token = null) => {
-  return await apiRequest('/api/likes', 'delete', { postId }, token);
+  if (!token) {
+    throw new Error('Authentication required to unlike posts');
+  }
+  
+  // Backend will get userId from JWT token
+  return await apiRequest('/api/likes/unlike', 'post', { postId }, token);
 };
 
 /**

@@ -11,10 +11,18 @@ export default function SWRProvider({ children }) {
   // Client-side fetcher implementation that includes authentication
   const clientFetcher = async (url) => {
     try {
+      console.log('🚀 SWR Fetcher called for:', url);
+      
       // Get token for authenticated requests
       const token = await getToken();
-      return await apiRequest(url, 'get', null, token);
+      console.log('🔑 Token retrieved:', !!token);
+      
+      const result = await apiRequest(url, 'get', null, token);
+      console.log('✅ API request successful for:', url, 'Data:', result);
+      
+      return result;
     } catch (error) {
+      console.error('❌ SWR Fetcher error for:', url, 'Error:', error);
       throw error;
     }
   };

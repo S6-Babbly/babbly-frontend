@@ -1,6 +1,7 @@
-import { apiClient } from './api';
+import useSWR from 'swr';
+import { apiRequest } from './api';
 
-// Fetcher function for SWR that uses our API client
+// SWR fetcher that uses our API request function with authentication
 export const fetcher = async (url) => {
   try {
     // Try to get token but don't fail if unavailable
@@ -12,17 +13,16 @@ export const fetcher = async (url) => {
         token = data.accessToken;
       }
     } catch (tokenError) {
-      console.log('No token available for request:', url);
+      // Silently handle token errors
     }
     
     // Make API call with or without token (backend handles both)
-    return await apiClient.get(url, token);
+    return await apiRequest(url, 'get', null, token);
   } catch (error) {
     // If auth fails, try again without token
     if (error.message?.includes('401') || error.message?.includes('auth')) {
-      console.log('Auth failed, retrying without token:', url);
       try {
-        return await apiClient.get(url, null);
+        return await apiRequest(url, 'get', null, null);
       } catch (retryError) {
         throw retryError;
       }
@@ -69,4 +69,22 @@ export const SWR_KEYS = {
   CURRENT_PROFILE: '/api/profiles/me',
   POST: (id) => `/api/feed/${id}`,
   COMMENTS: (postId) => `/api/comments/post/${postId}`,
+};
+
+// Custom hook for authenticated SWR requests
+export const useAuthenticatedSWR = (url, options = {}) => {
+  return useSWR(url, fetcher, {
+    errorRetryCount: 3,
+    errorRetryInterval: 1000,
+    ...options,
+  });
+};
+
+// Custom hook for SWR requests with manual token
+export const useSWRWithToken = (url, token, options = {}) => {
+  const tokenFetcher = async (url) => {
+    return await apiRequest(url, 'get', null, token);
+  };
+
+  return useSWR(token ? url : null, tokenFetcher, options);
 }; 

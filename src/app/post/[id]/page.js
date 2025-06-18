@@ -18,8 +18,7 @@ export default function PostPage({ params }) {
         const postData = await getPostById(id);
         setPost(postData);
       } catch (error) {
-        console.error('Error fetching post:', error);
-        setError('Failed to load the post. Please try again later.');
+        setError(error.message || 'Failed to fetch post');
       } finally {
         setIsLoading(false);
       }

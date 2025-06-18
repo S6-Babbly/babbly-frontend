@@ -17,7 +17,7 @@ spec:
       containers:
       - name: frontend
         image: morrishh/babbly-frontend:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
         env:
@@ -55,7 +55,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: auth0-secrets
-              key: AUTH0_DOMAIN
+              key: AUTH0_ISSUER_BASE_URL
         - name: AUTH0_CLIENT_SECRET
           valueFrom:
             secretKeyRef:

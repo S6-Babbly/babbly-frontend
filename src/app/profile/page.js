@@ -28,7 +28,7 @@ export default function ProfilePage() {
         try {
           data = await userService.getCurrentUserProfile(token);
         } catch (err) {
-          console.log('Using fallback user data:', user);
+          // Use fallback user data silently
         }
         
         setProfileData(data);
@@ -43,7 +43,6 @@ export default function ProfilePage() {
         });
         setError(null);
       } catch (err) {
-        console.error('Error fetching profile:', err);
         setError('Failed to load profile data');
       } finally {
         setIsLoadingProfile(false);
@@ -65,7 +64,6 @@ export default function ProfilePage() {
       setIsEditing(false);
       setError(null);
     } catch (err) {
-      console.error('Error updating profile:', err);
       setError('Failed to update profile');
     } finally {
       setIsSaving(false);
@@ -83,7 +81,6 @@ export default function ProfilePage() {
       // Redirect to logout after successful deletion
       window.location.href = '/api/auth/logout';
     } catch (err) {
-      console.error('Error deleting account:', err);
       setError('Failed to delete account');
       setIsDeleting(false);
       setShowDeleteConfirm(false);

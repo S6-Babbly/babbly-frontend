@@ -2,129 +2,100 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useUser } from '@auth0/nextjs-auth0/client';
-import { userService } from '@/services/userService';
+import { apiRequest } from '@/lib/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const { user, error, isLoading } = useUser();
+  const { user: auth0User, error: auth0Error, isLoading: auth0Loading } = useUser();
   const [appUser, setAppUser] = useState(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [authError, setAuthError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Get access token for API calls using NextJS Auth0's built-in method
+  // Get access token
   const getToken = useCallback(async () => {
-    if (!user) return null;
+    if (!auth0User) return null;
     
     try {
       const response = await fetch('/api/auth/token');
-      if (!response.ok) {
-        if (response.status === 401) {
-          return null; // User not authenticated
-        }
-        throw new Error('Failed to fetch token');
-      }
+      if (!response.ok) return null;
       const data = await response.json();
       return data.accessToken;
     } catch (error) {
-      console.error('Token fetch error:', error);
-      setAuthError(error.message);
       return null;
     }
-  }, [user]);
+  }, [auth0User]);
 
-  // Initialize user data after authentication
+  // Initialize user when Auth0 user changes
   useEffect(() => {
-    if (isLoading) return;
+    if (auth0Loading) return;
     
-    if (!user) {
-      // User is not logged in
-      setIsInitialized(true);
+    if (!auth0User) {
       setAppUser(null);
-      setAuthError(null);
+      setError(null);
+      setIsLoading(false);
       return;
     }
 
-    // User is logged in, sync with backend
-    const initializeUser = async () => {
+    const initUser = async () => {
+      setIsLoading(true);
+      setError(null);
+      
       try {
         const token = await getToken();
-        
         if (!token) {
-          console.log('No token available - user may need to complete authentication');
-          setIsInitialized(true);
-          return;
+          throw new Error('No access token available');
         }
 
-        // Sync user profile with backend
+        // Step 1: Check if user exists
+        let backendUser = null;
         try {
-          const userProfile = await userService.createOrUpdateUserProfile(user, token);
-          setAppUser(userProfile);
-          setAuthError(null);
-          
-          console.log('User profile synchronized successfully:', {
-            auth0Id: userProfile.auth0Id,
-            email: userProfile.email,
-            id: userProfile.id
-          });
-        } catch (profileError) {
-          console.error('Failed to sync user profile (non-fatal):', profileError);
-          // Set a temporary user object based on Auth0 data to allow the user to proceed
-          setAppUser({
-            auth0Id: user.sub,
-            email: user.email,
-            name: user.name,
-            picture: user.picture,
-            emailVerified: user.email_verified,
-            // Mark as not synced so we can retry later
-            _profileSyncPending: true
-          });
-          setAuthError('Profile sync pending - some features may be limited');
+          backendUser = await apiRequest('/api/users/me', 'get', null, token);
+        } catch (checkError) {
+          if (checkError.message.includes('not found') || checkError.message.includes('404')) {
+            // Step 2: Create new user
+            const userData = {
+              auth0Id: auth0User.sub,
+              email: auth0User.email,
+              fullName: auth0User.name,
+              firstName: auth0User.given_name,
+              lastName: auth0User.family_name,
+              username: auth0User.nickname || auth0User.email.split('@')[0],
+              picture: auth0User.picture,
+              emailVerified: auth0User.email_verified
+            };
+            
+            backendUser = await apiRequest('/api/users/profile', 'post', userData, token);
+          } else {
+            throw checkError; // Re-throw other errors
+          }
         }
+
+        setAppUser(backendUser);
       } catch (error) {
-        console.error('Failed to initialize user:', error);
-        setAuthError(error.message);
+        setError(error.message);
       } finally {
-        setIsInitialized(true);
+        setIsLoading(false);
       }
     };
 
-    initializeUser();
-  }, [isLoading, user, getToken]);
-
-  // Refresh user profile
-  const refreshUserProfile = useCallback(async () => {
-    if (!user) return null;
-    
-    try {
-      const token = await getToken();
-      if (!token) return null;
-      
-      const profile = await userService.getCurrentUserProfile(token);
-      setAppUser(profile);
-      return profile;
-    } catch (error) {
-      console.error('Error refreshing user profile:', error);
-      setAuthError(error.message);
-      return null;
-    }
-  }, [user, getToken]);
+    initUser();
+  }, [auth0User, auth0Loading, getToken]);
 
   const value = {
-    // Authentication state
-    isAuthenticated: !!user,
-    isLoading: isLoading || !isInitialized,
+    // Auth state
+    isAuthenticated: !!auth0User && !!appUser,
+    isLoading: auth0Loading || isLoading,
     
     // User data
-    user: appUser,           // App-specific user data from backend
-    auth0User: user,         // Raw Auth0 user data
+    user: appUser,
+    auth0User,
     
-    // Methods
+    // Utils
     getToken,
-    refreshUserProfile,
     
-    // Error handling
-    error: error || authError
+    // Errors
+    error: auth0Error?.message || error
   };
 
   return (
@@ -136,8 +107,8 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === null) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 }; 

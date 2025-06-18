@@ -23,9 +23,23 @@ export default function Post({ post, onPostUpdated, onPostDeleted }) {
   const handleLike = async () => {
     if (isLiking) return;
     
+    // Check if user is authenticated
+    if (!auth0User) {
+      console.error('Must be logged in to like posts');
+      return;
+    }
+    
     setIsLiking(true);
     try {
-      const response = await likePost(post.id);
+      // Get authentication token
+      const token = await fetch('/api/auth/token');
+      const tokenData = await token.json();
+      
+      if (!tokenData.accessToken) {
+        throw new Error('Authentication token not available');
+      }
+      
+      const response = await likePost(post.id, tokenData.accessToken);
       setLikes(response.likes);
     } catch (error) {
       console.error('Failed to like post:', error);
@@ -94,15 +108,34 @@ export default function Post({ post, onPostUpdated, onPostDeleted }) {
     setCommentCount(count);
   };
 
+  // Handle both uppercase (C#) and lowercase (JavaScript) user property
+  const user = post.user || post.User;
+
   return (
     <article className="border-b border-white/20 p-4 hover:bg-white/5 transition-colors">
       <div className="flex gap-4">
-        <div className="w-12 h-12 rounded-full bg-white/20 flex-shrink-0"></div>
+        <div className="w-12 h-12 rounded-full bg-white/20 flex-shrink-0 overflow-hidden">
+          {user?.extraData?.profilePicture ? (
+            <img 
+              src={user.extraData.profilePicture} 
+              alt={user.username || user.email || 'User'} 
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-primary flex items-center justify-center text-white font-bold">
+              {(user?.username || user?.email || 'U').charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-bold hover:underline">User {post.userId}</span>
-              <span className="text-white/50">@user{post.userId}</span>
+              <span className="font-bold hover:underline">
+                {user?.extraData?.displayName || user?.username || user?.email || 'User'}
+              </span>
+              <span className="text-white/50">
+                @{user?.username || user?.email?.split('@')[0] || 'user'}
+              </span>
               <span className="text-white/50">·</span>
               <span className="text-white/50 hover:underline">{post.timeAgo}</span>
             </div>

@@ -18,7 +18,6 @@ export async function GET(req) {
     // with instructions on contacting support
     return NextResponse.redirect(new URL('/account/deletion-requested', req.url));
   } catch (error) {
-    console.error('Delete account error:', error);
     return NextResponse.redirect(new URL('/error?message=Account+deletion+failed', req.url));
   }
 } 
