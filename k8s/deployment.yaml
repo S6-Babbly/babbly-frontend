@@ -60,4 +60,14 @@ spec:
           valueFrom:
             secretKeyRef:
               name: auth0-secrets
-              key: AUTH0_CLIENT_SECRET 
+              key: AUTH0_CLIENT_SECRET
+        - name: AUTH0_DOMAIN
+          valueFrom:
+            secretKeyRef:
+              name: auth0-secrets
+              key: AUTH0_DOMAIN
+        - name: AUTH0_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: auth0-secrets
+              key: AUTH0_CLIENT_ID 
