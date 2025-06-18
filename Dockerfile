@@ -14,11 +14,15 @@ RUN npm ci
 # For development, we'll mount the source code as a volume
 COPY . .
 
+# Accept build arguments
+ARG NEXT_PUBLIC_API_URL=http://localhost:5010
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_EXPORT=false
 ENV NEXT_FORCE_DYNAMIC=true
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Build the app for production
 RUN npm run build
