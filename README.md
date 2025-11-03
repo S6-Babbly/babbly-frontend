@@ -1,44 +1,30 @@
 # Babbly Frontend
 
-This is the frontend application for the Babbly social media platform, built with Next.js.
+The web interface for the Babbly social media platform, built with Next.js and featuring Auth0 authentication.
+
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **UI Library**: React
+- **Authentication**: Auth0
+- **Data Fetching**: SWR
+- **Styling**: Tailwind CSS
 
 ## Features
 
 - Secure authentication via Auth0
-- Real-time posts and comments
-- User profiles and settings
+- Post creation and feed viewing
+- User profiles and comments
 - Protected routes with role-based access control
 - Modern, responsive UI
 
-## Tech Stack
-
-- Next.js (App Router)
-- React
-- Auth0 for authentication
-- SWR for data fetching
-- Tailwind CSS for styling
-
-## Getting Started
+## Local Development Setup
 
 ### Prerequisites
 
 - Node.js 18+
 - npm or yarn
 - Auth0 account
-
-### Auth0 Setup
-
-1. Create a new application in the Auth0 dashboard
-   - Choose "Regular Web Application"
-   
-2. Configure the following URLs in your Auth0 application settings:
-   - **Allowed Callback URLs**: `http://localhost:3000/api/auth/callback`
-   - **Allowed Logout URLs**: `http://localhost:3000`
-   - **Allowed Web Origins**: `http://localhost:3000`
-
-3. Create an API in Auth0
-   - Set the identifier to `https://api.babbly.com` (or your preferred audience)
-   - Enable RBAC and Add Permissions in the Access Token
 
 ### Installation
 
@@ -82,7 +68,23 @@ This is the frontend application for the Babbly social media platform, built wit
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the app.
 
-## Authentication Flow
+### Auth0 Configuration
+
+1. Create a new application in the Auth0 dashboard:
+   - Choose "Regular Web Application"
+   
+2. Configure the following URLs in your Auth0 application settings:
+   - **Allowed Callback URLs**: `http://localhost:3000/api/auth/callback`
+   - **Allowed Logout URLs**: `http://localhost:3000`
+   - **Allowed Web Origins**: `http://localhost:3000`
+
+3. Create an API in Auth0:
+   - Set the identifier to `https://api.babbly.com`
+   - Enable RBAC and "Add Permissions in the Access Token"
+
+## Architecture Notes
+
+The frontend communicates with backend microservices through the API Gateway. Authentication flow:
 
 1. User clicks "Login" on the frontend
 2. User is redirected to Auth0 login page
@@ -104,42 +106,23 @@ src/
 └── styles/           # Global styles
 ```
 
+## Docker Support
+
+Run the frontend using Docker Compose (along with other services):
+
+```bash
+# From the root of the Babbly organization
+docker-compose up -d frontend
+```
+
+The frontend will be available at `http://localhost:3000`.
+
 ## Key Components
 
 - `AuthContext`: Manages user authentication state
 - `withAuth`: HOC to protect routes requiring authentication
 - `withAuthorization`: HOC for role-based access control
 - `SWRProvider`: Provides data fetching capabilities
-
-## Docker Support
-
-You can also run the frontend using Docker:
-
-```bash
-docker-compose up -d
-```
-
-This will start the frontend on port 3000.
-
-## Testing
-
-```bash
-npm run test
-# or
-yarn test
-```
-
-## Building for Production
-
-```bash
-npm run build
-# or
-yarn build
-```
-
-## Deployment
-
-The project can be deployed to any hosting platform that supports Next.js, such as Vercel, Netlify, or your own servers.
 
 ## License
 
