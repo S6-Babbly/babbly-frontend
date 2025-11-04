@@ -13,7 +13,7 @@ jobs:
     name: Frontend Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -34,7 +34,7 @@ jobs:
     needs: frontend-build
     if: always() && (needs.frontend-build.result == 'success' || needs.frontend-build.result == 'skipped')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
